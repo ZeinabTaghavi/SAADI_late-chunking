@@ -1,0 +1,157 @@
+{
+  "doc_id": "1903.02930",
+  "canonical_chunking_tokenizer_name": "jinaai/jina-embeddings-v2-small-en",
+  "canonical_full_document_token_count": 1615,
+  "encoders": {
+    "jina": {
+      "doc_id": "1903.02930",
+      "encoder_model": "jinaai/jina-embeddings-v2-small-en",
+      "tokenizer_name": "jinaai/jina-embeddings-v2-small-en",
+      "full_document_token_count": 1615,
+      "max_tokens_per_forward": 8192,
+      "segmentation_or_windowing_strategy": "single_forward",
+      "stride_or_overlap_tokens": 256,
+      "instruction_prefix": "",
+      "instruction_token_count": 0,
+      "full_model_input_token_count": 1617,
+      "encoder_windows": [
+        {
+          "window_index": 0,
+          "input_token_start": 0,
+          "input_token_end": 1617,
+          "dropped_left_tokens": 0,
+          "kept_token_start": 0,
+          "kept_token_end": 1617
+        }
+      ],
+      "chunk_pooling_map": [
+        {
+          "chunk_id": "1903.02930__chunk_00000__a5017379f99e",
+          "canonical_char_start": 1,
+          "canonical_char_end": 960,
+          "canonical_token_start": 0,
+          "canonical_token_end": 200,
+          "encoder_doc_token_start": 0,
+          "encoder_doc_token_end": 200,
+          "pooled_char_start": 1,
+          "pooled_char_end": 960,
+          "exact_char_match": true,
+          "encoder_model_token_start": 0,
+          "encoder_model_token_end": 201
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00001__f02bbaedc354",
+          "canonical_char_start": 960,
+          "canonical_char_end": 1863,
+          "canonical_token_start": 200,
+          "canonical_token_end": 400,
+          "encoder_doc_token_start": 200,
+          "encoder_doc_token_end": 400,
+          "pooled_char_start": 960,
+          "pooled_char_end": 1863,
+          "exact_char_match": true,
+          "encoder_model_token_start": 201,
+          "encoder_model_token_end": 401
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00002__1e80caafa3ce",
+          "canonical_char_start": 1864,
+          "canonical_char_end": 2870,
+          "canonical_token_start": 400,
+          "canonical_token_end": 600,
+          "encoder_doc_token_start": 400,
+          "encoder_doc_token_end": 600,
+          "pooled_char_start": 1864,
+          "pooled_char_end": 2870,
+          "exact_char_match": true,
+          "encoder_model_token_start": 401,
+          "encoder_model_token_end": 601
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00003__86a7a93372d0",
+          "canonical_char_start": 2870,
+          "canonical_char_end": 3770,
+          "canonical_token_start": 600,
+          "canonical_token_end": 800,
+          "encoder_doc_token_start": 600,
+          "encoder_doc_token_end": 800,
+          "pooled_char_start": 2870,
+          "pooled_char_end": 3770,
+          "exact_char_match": true,
+          "encoder_model_token_start": 601,
+          "encoder_model_token_end": 801
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00004__6cc6a81fc4d0",
+          "canonical_char_start": 3771,
+          "canonical_char_end": 4678,
+          "canonical_token_start": 800,
+          "canonical_token_end": 1000,
+          "encoder_doc_token_start": 800,
+          "encoder_doc_token_end": 1000,
+          "pooled_char_start": 3771,
+          "pooled_char_end": 4678,
+          "exact_char_match": true,
+          "encoder_model_token_start": 801,
+          "encoder_model_token_end": 1001
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00005__5387512ba32c",
+          "canonical_char_start": 4679,
+          "canonical_char_end": 5583,
+          "canonical_token_start": 1000,
+          "canonical_token_end": 1200,
+          "encoder_doc_token_start": 1000,
+          "encoder_doc_token_end": 1200,
+          "pooled_char_start": 4679,
+          "pooled_char_end": 5583,
+          "exact_char_match": true,
+          "encoder_model_token_start": 1001,
+          "encoder_model_token_end": 1201
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00006__d93f38fc2dbc",
+          "canonical_char_start": 5584,
+          "canonical_char_end": 6383,
+          "canonical_token_start": 1200,
+          "canonical_token_end": 1400,
+          "encoder_doc_token_start": 1200,
+          "encoder_doc_token_end": 1400,
+          "pooled_char_start": 5584,
+          "pooled_char_end": 6383,
+          "exact_char_match": true,
+          "encoder_model_token_start": 1201,
+          "encoder_model_token_end": 1401
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00007__1903e3c4717c",
+          "canonical_char_start": 6384,
+          "canonical_char_end": 7362,
+          "canonical_token_start": 1400,
+          "canonical_token_end": 1600,
+          "encoder_doc_token_start": 1400,
+          "encoder_doc_token_end": 1600,
+          "pooled_char_start": 6384,
+          "pooled_char_end": 7362,
+          "exact_char_match": true,
+          "encoder_model_token_start": 1401,
+          "encoder_model_token_end": 1601
+        },
+        {
+          "chunk_id": "1903.02930__chunk_00008__8d41718d0698",
+          "canonical_char_start": 7363,
+          "canonical_char_end": 7447,
+          "canonical_token_start": 1600,
+          "canonical_token_end": 1615,
+          "encoder_doc_token_start": 1600,
+          "encoder_doc_token_end": 1615,
+          "pooled_char_start": 7363,
+          "pooled_char_end": 7447,
+          "exact_char_match": true,
+          "encoder_model_token_start": 1601,
+          "encoder_model_token_end": 1617
+        }
+      ]
+    }
+  }
+}
