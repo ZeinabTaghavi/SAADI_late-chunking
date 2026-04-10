@@ -123,6 +123,7 @@ DATASET_PRESETS = {
 logger = logging.getLogger(__name__)
 QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
 LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
+NARRATIVEQA_DATASET_NAMES = {"narrativeqa", "deepmind/narrativeqa"}
 LOOGLE_HF_DATASET_IDS = ("bigai-nlco/LooGLE", "bigainlco/LooGLE")
 LOOGLE_LEGACY_CONFIG_ALIASES = {
     "longdep_summarization": "summarization",
@@ -265,6 +266,141 @@ def _load_qasper_dataset(*, cfg: Optional[str]):
                 "`trust_remote_code=True`, or rely on the parquet-converted branch."
             ) from exc
         raise
+
+
+def _resolve_narrativeqa_config(
+    requested: Optional[str], dataset_name: str = "deepmind/narrativeqa"
+) -> Optional[str]:
+    try:
+        configs = datasets.get_dataset_config_names(dataset_name) or []
+    except Exception:
+        configs = []
+    if not configs:
+        return None
+    if requested in configs:
+        return requested
+    return configs[0]
+
+
+def _load_narrativeqa_dataset(*, cfg: Optional[str]):
+    try:
+        return (
+            datasets.load_dataset("deepmind/narrativeqa", name=cfg)
+            if cfg
+            else datasets.load_dataset("deepmind/narrativeqa")
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        if "Feature type 'List' not found" in msg:
+            raise RuntimeError(
+                "Loading 'deepmind/narrativeqa' failed because your installed "
+                "`datasets` package is too old for this dataset metadata. Upgrade "
+                "datasets (for example `python -m pip install -U \"datasets>=4\"`) "
+                "and retry."
+            ) from exc
+        raise
+
+
+def load_narrativeqa_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
+    import random
+
+    split = str(loader_config.get("split") or "test")
+    config_name = loader_config.get("config_name") or "default"
+    qa_n = loader_config.get("qa_n", "all")
+    qa_selection_method = str(loader_config.get("qa_selection_method") or "first")
+
+    cfg = _resolve_narrativeqa_config(config_name)
+    logger.info(
+        "Loading NarrativeQA split=%s config=%s n=%s selection=%s",
+        split,
+        cfg,
+        qa_n,
+        qa_selection_method,
+    )
+    dataset_dict = _load_narrativeqa_dataset(cfg=cfg)
+
+    documents: OrderedDict[str, Dict[str, object]] = OrderedDict()
+    qa_candidates: List[Dict[str, object]] = []
+
+    for row_index, row in enumerate(dataset_dict[split]):
+        doc = row.get("document") or {}
+        doc_id = doc.get("id") or row.get("document_id") or row.get("doc_id")
+        if not doc_id:
+            continue
+        doc_id = str(doc_id)
+        doc_text = _coerce_to_text(doc.get("text") if isinstance(doc, dict) else doc).strip()
+        if doc_text and doc_id not in documents:
+            documents[doc_id] = {
+                **row,
+                "doc_id": doc_id,
+                "text": doc_text,
+            }
+
+        question = row.get("question")
+        if isinstance(question, dict):
+            question = question.get("text")
+        question_text = _coerce_to_text(question).strip()
+        if not question_text:
+            continue
+
+        answer_text = _coerce_to_text(row.get("answers")).strip()
+        if not answer_text:
+            continue
+
+        qa_candidates.append(
+            {
+                "doc_id": doc_id,
+                "question": question_text,
+                "answers": [answer_text],
+                "retrieval_spans": [],
+                "source_row_index": row_index,
+                "raw_row": dict(row),
+            }
+        )
+
+    total = len(qa_candidates)
+    if isinstance(qa_n, str):
+        qa_n = total if qa_n.lower() == "all" else int(qa_n)
+    qa_n = min(int(qa_n), total)
+    indices = list(range(total))
+    if qa_n < total:
+        indices = (
+            random.sample(indices, qa_n)
+            if qa_selection_method == "random"
+            else indices[:qa_n]
+        )
+
+    qa_entries: List[Dict[str, object]] = []
+    for qa_index in indices:
+        row = qa_candidates[qa_index]
+        qa_entries.append(
+            {
+                "query_id": f"narrativeqa_{qa_index}",
+                "source_qa_index": qa_index,
+                "doc_id": row["doc_id"],
+                "document_id": row["doc_id"],
+                "question": row["question"],
+                "reference_answers": list(row["answers"]),
+                "answers": list(row["answers"]),
+                "retrieval_spans": [],
+                "evidence_spans": [],
+                "source_row_index": row["source_row_index"],
+                "raw_row": row["raw_row"],
+                "relevant_doc_ids": [row["doc_id"]],
+            }
+        )
+
+    return DatasetBundle(
+        documents=documents,
+        qa_entries=qa_entries,
+        metadata={
+            "loader_type": "narrativeqa",
+            "split": split,
+            "config_name": cfg,
+            "qa_n": loader_config.get("qa_n", "all"),
+            "qa_selection_method": qa_selection_method,
+        },
+    )
 
 
 def _normalize_loogle_requested_config(requested: Optional[str]) -> str:
@@ -830,12 +966,14 @@ def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle
         return load_qasper_bundle(loader_config)
     if dataset_name in LOOGLE_DATASET_NAMES:
         return load_loogle_bundle(loader_config)
+    if dataset_name in NARRATIVEQA_DATASET_NAMES:
+        return load_narrativeqa_bundle(loader_config)
 
     if dataset_name not in DATASET_PRESETS:
         supported = ", ".join(sorted(DATASET_PRESETS))
         raise ValueError(
             f"Unsupported dataset '{loader_config['dataset_name']}'. "
-            f"Supported presets: {supported}, loogle, qasper"
+            f"Supported presets: {supported}, loogle, narrativeqa, qasper"
         )
 
     spec = dict(DATASET_PRESETS[dataset_name])
