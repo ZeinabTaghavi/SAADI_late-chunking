@@ -98,24 +98,35 @@ def _resolve_input_device(model) -> torch.device:
 
 
 def _validate_runtime_requirements(config: Dict[str, object]) -> None:
-    min_transformers_version = config.get("min_transformers_version")
-    if min_transformers_version is None:
-        return
-
     installed_version = Version(transformers.__version__)
-    required_version = Version(str(min_transformers_version))
-    if installed_version >= required_version:
-        return
 
     retriever_name = str(config.get("name") or config.get("model_name") or "retriever")
     model_name = str(config.get("model_name") or retriever_name)
-    raise RuntimeError(
-        f"Retriever '{retriever_name}' requires transformers>={required_version}, "
-        f"but the current environment has transformers=={installed_version}. "
-        f"This is required to load '{model_name}' correctly; older versions fail on "
-        "the Qwen3 architecture with errors like KeyError: 'qwen3'. Upgrade the "
-        "environment or remove this retriever from --retriever / RETRIEVERS."
+    min_transformers_version = config.get("min_transformers_version")
+    if min_transformers_version is not None:
+        required_version = Version(str(min_transformers_version))
+        if installed_version < required_version:
+            raise RuntimeError(
+                f"Retriever '{retriever_name}' requires transformers>={required_version}, "
+                f"but the current environment has transformers=={installed_version}. "
+                f"This is required to load '{model_name}' correctly; older versions fail on "
+                "the Qwen3 architecture with errors like KeyError: 'qwen3'. Upgrade the "
+                "environment or remove this retriever from --retriever / RETRIEVERS."
+            )
+
+    max_transformers_version_exclusive = config.get(
+        "max_transformers_version_exclusive"
     )
+    if max_transformers_version_exclusive is not None:
+        disallowed_version = Version(str(max_transformers_version_exclusive))
+        if installed_version >= disallowed_version:
+            raise RuntimeError(
+                f"Retriever '{retriever_name}' requires transformers<{disallowed_version}, "
+                f"but the current environment has transformers=={installed_version}. "
+                f"This is required to load '{model_name}' correctly because the Jina "
+                "remote-code implementation is not compatible with transformers 5.x. "
+                "Use a 4.x release such as transformers>=4.51.0,<5."
+            )
 
 
 def _build_model_load_kwargs(config: Dict[str, object]) -> Dict[str, object]:

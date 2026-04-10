@@ -67,6 +67,17 @@ def test_qwen_retriever_alias_is_available():
     assert retrievers[0]["shard_across_available_gpus"] is True
 
 
+def test_jina_retriever_alias_rejects_transformers_5(monkeypatch):
+    retrievers = parse_retriever_specs(["jina"], {})
+    monkeypatch.setattr(
+        "chunked_pooling.experiment_retrievers.transformers.__version__",
+        "5.0.0",
+    )
+
+    with pytest.raises(RuntimeError, match="requires transformers<5.0.0"):
+        _validate_runtime_requirements(retrievers[0])
+
+
 def test_qwen_runtime_validation_reports_old_transformers(monkeypatch):
     retrievers = parse_retriever_specs(["qwen"], {})
     monkeypatch.setattr(

@@ -37,7 +37,7 @@ LATE_WINDOW_OVERLAP_TOKENS="${LATE_WINDOW_OVERLAP_TOKENS:-256}"
 RESUME="${RESUME:-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
-if [[ " ${RETRIEVERS} " == *" qwen "* ]]; then
+if [[ " ${RETRIEVERS} " == *" qwen "* || " ${RETRIEVERS} " == *" jina "* || " ${RETRIEVERS} " == *" jina-base "* || " ${RETRIEVERS} " == *" jina-v3 "* ]]; then
   "${PYTHON_BIN}" - <<'PY'
 from packaging.version import Version
 import importlib.util
@@ -46,13 +46,25 @@ import os
 import transformers
 
 installed = Version(transformers.__version__)
-required = Version("4.51.0")
-if installed < required:
-    raise SystemExit(
-        "Qwen/Qwen3-Embedding-8B requires transformers>=4.51.0, "
-        f"but this environment has transformers=={transformers.__version__}. "
-        "Upgrade the environment or remove 'qwen' from RETRIEVERS."
-    )
+retrievers = {item.strip() for item in os.environ.get("RETRIEVERS", "").split() if item.strip()}
+
+if "qwen" in retrievers:
+    required = Version("4.51.0")
+    if installed < required:
+        raise SystemExit(
+            "Qwen/Qwen3-Embedding-8B requires transformers>=4.51.0, "
+            f"but this environment has transformers=={transformers.__version__}. "
+            "Upgrade the environment or remove 'qwen' from RETRIEVERS."
+        )
+
+if {"jina", "jina-base", "jina-v3"} & retrievers:
+    disallowed = Version("5.0.0")
+    if installed >= disallowed:
+        raise SystemExit(
+            "The Jina retrievers used by this project require transformers<5.0.0, "
+            f"but this environment has transformers=={transformers.__version__}. "
+            "Use a 4.x release such as 'transformers>=4.51.0,<5'."
+        )
 
 visible_devices = [part.strip() for part in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if part.strip()]
 if len(visible_devices) > 1 and importlib.util.find_spec("accelerate") is None:

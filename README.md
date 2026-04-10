@@ -140,6 +140,9 @@ Supported retriever aliases:
 automatically shards the model across multiple visible GPUs when more than one
 CUDA device is available. Multi-GPU sharding requires the `accelerate` package.
 
+For mixed `jina` + `qwen` support in this project, use `transformers>=4.51.0,<5`.
+`transformers` 5.x breaks the older Jina remote-code implementation.
+
 You can also pass an explicit retriever spec:
 
 ```bash
