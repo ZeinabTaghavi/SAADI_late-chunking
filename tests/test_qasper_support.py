@@ -50,6 +50,13 @@ def test_qasper_yaml_mapping_matches_reference_defaults():
     assert any("ingest.strategy='hierarchical'" in note for note in notes)
 
 
+def test_qwen_retriever_alias_is_available():
+    retrievers = parse_retriever_specs(["qwen"], {})
+    assert retrievers[0]["name"] == "qwen"
+    assert retrievers[0]["model_name"] == "Qwen/Qwen3-Embedding-8B"
+    assert retrievers[0]["pooling"] == "last_token"
+
+
 def test_qasper_loader_and_sampling_follow_reference_order(monkeypatch):
     fake_dataset = {
         "test": [
@@ -153,3 +160,54 @@ def test_qasper_loader_and_sampling_follow_reference_order(monkeypatch):
     )
     assert list(filtered_subset.documents.keys()) == ["doc-1"]
     assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["doc-1"]
+
+
+def test_resolve_run_config_applies_explicit_overrides():
+    default_experiment = {
+        "dataset": {
+            "name": "qasper",
+            "split": "test",
+            "config_name": "default",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+        },
+        "chunking": {
+            "strategy": "fixed",
+            "chunk_size": 200,
+            "overlap": 0,
+            "tokenizer_name": "jinaai/jina-embeddings-v2-small-en",
+        },
+        "retrieval": {
+            "retriever": "jina",
+            "retrieve_k": 5,
+            "scope": "per_document",
+        },
+        "sample": {
+            "max_documents": 25,
+        },
+        "late_chunking": {
+            "max_tokens_per_forward": 8192,
+            "window_overlap_tokens": 256,
+        },
+    }
+    retrievers = parse_retriever_specs([], default_experiment)
+    resolved_config, notes = resolve_run_config(
+        dataset_name="qasper",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        resume=True,
+        overrides={
+            "chunk_size": 384,
+            "chunk_overlap": 32,
+            "retrieve_k": 7,
+            "max_docs": 12,
+            "late_max_tokens_per_forward": 4096,
+        },
+    )
+
+    assert resolved_config["chunking"]["chunk_size"] == 384
+    assert resolved_config["chunking"]["overlap"] == 32
+    assert resolved_config["retrieval"]["retrieve_k"] == 7
+    assert resolved_config["dataset_loader"]["max_docs"] == 12
+    assert resolved_config["late_chunking"]["max_tokens_per_forward"] == 4096
+    assert any("chunking.chunk_size overridden" in note for note in notes)

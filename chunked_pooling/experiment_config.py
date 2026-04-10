@@ -36,6 +36,21 @@ RETRIEVER_ALIASES = {
         "normalize": True,
         "distance_metric": "cosine",
     },
+    "qwen": {
+        "name": "qwen",
+        "type": "dense",
+        "model_name": "Qwen/Qwen3-Embedding-8B",
+        "tokenizer_name": "Qwen/Qwen3-Embedding-8B",
+        "normalize": True,
+        "distance_metric": "cosine",
+        "pooling": "last_token",
+        "padding_side": "left",
+        "max_length": 32768,
+        "query_prompt": (
+            "Instruct: Given a web search query, retrieve relevant passages that answer the query\n"
+            "Query:"
+        ),
+    },
     "bm25": {
         "name": "bm25",
         "type": "bm25",
@@ -146,6 +161,7 @@ def parse_retriever_spec(spec) -> Dict[str, object]:
             raise ValueError(f"Retriever spec '{spec}' is missing model_name.")
         base.setdefault("distance_metric", "cosine")
         base["normalize"] = _to_bool(base.get("normalize"), default=True)
+        base.setdefault("pooling", "mean")
 
     base["name"] = name
     base["type"] = retriever_type
@@ -205,9 +221,11 @@ def resolve_run_config(
     run_name_override: Optional[str] = None,
     output_root_override: Optional[str] = None,
     resume: bool = True,
+    overrides: Optional[Dict[str, object]] = None,
 ) -> Tuple[Dict[str, object], List[str]]:
     used_paths = set()
     notes: List[str] = []
+    overrides = overrides or {}
 
     dataset_loader_config = {
         "type": _pick(
@@ -456,6 +474,62 @@ def resolve_run_config(
             default=True,
         )
     }
+
+    override_mappings = [
+        (dataset_loader_config, "max_docs", "max_docs", "dataset_loader.max_docs"),
+        (
+            dataset_loader_config,
+            "max_questions",
+            "max_questions",
+            "dataset_loader.max_questions",
+        ),
+        (
+            chunking_config,
+            "strategy",
+            "chunking_strategy",
+            "chunking.strategy",
+        ),
+        (chunking_config, "chunk_size", "chunk_size", "chunking.chunk_size"),
+        (chunking_config, "overlap", "chunk_overlap", "chunking.overlap"),
+        (chunking_config, "n_sentences", "n_sentences", "chunking.n_sentences"),
+        (
+            chunking_config,
+            "sentence_overlap",
+            "sentence_overlap",
+            "chunking.sentence_overlap",
+        ),
+        (
+            chunking_config,
+            "tokenizer_name",
+            "chunk_tokenizer_name",
+            "chunking.tokenizer_name",
+        ),
+        (retrieval_config, "retrieve_k", "retrieve_k", "retrieval.retrieve_k"),
+        (
+            retrieval_config,
+            "scope",
+            "retrieval_scope",
+            "retrieval.scope",
+        ),
+        (
+            late_chunking_config,
+            "max_tokens_per_forward",
+            "late_max_tokens_per_forward",
+            "late_chunking.max_tokens_per_forward",
+        ),
+        (
+            late_chunking_config,
+            "window_overlap_tokens",
+            "late_window_overlap_tokens",
+            "late_chunking.window_overlap_tokens",
+        ),
+    ]
+    for container, key, override_key, label in override_mappings:
+        value = overrides.get(override_key)
+        if value is None:
+            continue
+        container[key] = value
+        notes.append(f"{label} overridden from the command line: {value}")
 
     run_name = resolve_run_name(
         dataset_name=dataset_name,

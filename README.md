@@ -132,6 +132,7 @@ Supported retriever aliases:
 - `jina`
 - `jina-base`
 - `jina-v3`
+- `qwen`
 - `contriever`
 - `bm25`
 
@@ -169,7 +170,7 @@ The runner also understands the relevant QASPER defaults from the SAADI-style re
 - `retrieval.retrieve_k`
 - `retrieval.scope`
 
-There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina"`.
+There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina qwen"`.
 
 ```bash
 bash scripts/run_qasper_late_chunking.sh
@@ -178,11 +179,31 @@ bash scripts/run_qasper_late_chunking.sh
 Useful overrides:
 
 ```bash
-RETRIEVERS="jina contriever bm25" \
-RUN_NAME="qasper__jina-contriever-bm25" \
+RETRIEVERS="jina qwen" \
+CHUNK_SIZE="384" \
+CHUNK_OVERLAP="32" \
+RETRIEVE_K="7" \
+MAX_DOCS="10" \
+RUN_NAME="qasper__fixed-c384-o32__jina-qwen" \
 OUTPUT_ROOT="late_chunk_runs" \
 bash scripts/run_qasper_late_chunking.sh
 ```
+
+The launcher exposes these top-level variables for quick edits:
+
+- `RETRIEVERS`
+- `CHUNKING_STRATEGY`
+- `CHUNK_SIZE`
+- `CHUNK_OVERLAP`
+- `CHUNK_TOKENIZER_NAME`
+- `N_SENTENCES`
+- `SENTENCE_OVERLAP`
+- `RETRIEVE_K`
+- `RETRIEVAL_SCOPE`
+- `MAX_DOCS`
+- `MAX_QUESTIONS`
+- `LATE_MAX_TOKENS_PER_FORWARD`
+- `LATE_WINDOW_OVERLAP_TOKENS`
 
 The runner creates:
 

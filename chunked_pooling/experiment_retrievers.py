@@ -77,6 +77,19 @@ def _mean_pool(last_hidden_state, attention_mask):
     return summed / counts
 
 
+def _last_token_pool(last_hidden_state, attention_mask):
+    left_padding = bool(
+        (attention_mask[:, -1].sum() == attention_mask.shape[0]).item()
+    )
+    if left_padding:
+        return last_hidden_state[:, -1]
+    sequence_lengths = attention_mask.sum(dim=1) - 1
+    batch_size = last_hidden_state.shape[0]
+    return last_hidden_state[
+        torch.arange(batch_size, device=last_hidden_state.device), sequence_lengths
+    ]
+
+
 @dataclass
 class DenseRetriever:
     name: str
@@ -93,12 +106,15 @@ class DenseRetriever:
     device: torch.device
     max_length: int
     model_context_window: int
+    pooling: str
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "DenseRetriever":
         model, has_instructions = load_model(str(config["model_name"]))
         tokenizer_name = str(config.get("tokenizer_name") or config["model_name"])
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
+        padding_side = str(config.get("padding_side") or getattr(tokenizer, "padding_side", "right"))
+        tokenizer.padding_side = padding_side
 
         if torch.cuda.is_available():
             model = model.cuda()
@@ -138,6 +154,7 @@ class DenseRetriever:
             device=getattr(model, "device", torch.device("cpu")),
             max_length=max_length,
             model_context_window=model_context_window,
+            pooling=str(config.get("pooling") or "mean"),
         )
 
     def _tokenize_with_prompt(self, texts: Sequence[str], prompt: str):
@@ -159,7 +176,10 @@ class DenseRetriever:
             outputs = self.model(**inputs)
 
         last_hidden_state = outputs[0]
-        embeddings = _mean_pool(last_hidden_state, inputs["attention_mask"])
+        if self.pooling == "last_token":
+            embeddings = _last_token_pool(last_hidden_state, inputs["attention_mask"])
+        else:
+            embeddings = _mean_pool(last_hidden_state, inputs["attention_mask"])
         embeddings = embeddings.detach().cpu().numpy()
         return normalize_rows(embeddings) if self.normalize else embeddings
 

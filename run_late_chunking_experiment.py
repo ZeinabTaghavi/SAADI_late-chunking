@@ -34,6 +34,28 @@ from chunked_pooling.late_chunk_runner import run_late_chunking_experiment
     type=click.Path(file_okay=False, path_type=str),
     help="Optional override for the run output root directory.",
 )
+@click.option("--chunking-strategy", default=None, help="Optional override for chunking strategy.")
+@click.option("--chunk-size", type=int, default=None, help="Optional override for chunk size.")
+@click.option("--chunk-overlap", type=int, default=None, help="Optional override for chunk overlap.")
+@click.option("--n-sentences", type=int, default=None, help="Optional override for sentence chunking group size.")
+@click.option("--sentence-overlap", type=int, default=None, help="Optional override for sentence chunking overlap.")
+@click.option("--chunk-tokenizer-name", default=None, help="Optional override for canonical chunking tokenizer.")
+@click.option("--retrieve-k", type=int, default=None, help="Optional override for retrieval top-k.")
+@click.option("--retrieval-scope", default=None, help="Optional override for retrieval scope.")
+@click.option("--max-docs", type=int, default=None, help="Optional override for selected document cap.")
+@click.option("--max-questions", type=int, default=None, help="Optional override for selected question cap.")
+@click.option(
+    "--late-max-tokens-per-forward",
+    type=int,
+    default=None,
+    help="Optional override for late-chunking max tokens per forward pass.",
+)
+@click.option(
+    "--late-window-overlap-tokens",
+    type=int,
+    default=None,
+    help="Optional override for late-chunking encoding window overlap.",
+)
 @click.option("--resume/--no-resume", default=True, help="Reuse existing artifacts when practical.")
 def main(
     dataset_name,
@@ -41,6 +63,18 @@ def main(
     retriever_specs,
     run_name,
     output_root,
+    chunking_strategy,
+    chunk_size,
+    chunk_overlap,
+    n_sentences,
+    sentence_overlap,
+    chunk_tokenizer_name,
+    retrieve_k,
+    retrieval_scope,
+    max_docs,
+    max_questions,
+    late_max_tokens_per_forward,
+    late_window_overlap_tokens,
     resume,
 ):
     default_experiment = load_yaml_file(default_experiment_path)
@@ -52,6 +86,20 @@ def main(
         run_name_override=run_name,
         output_root_override=output_root,
         resume=resume,
+        overrides={
+            "chunking_strategy": chunking_strategy,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "n_sentences": n_sentences,
+            "sentence_overlap": sentence_overlap,
+            "chunk_tokenizer_name": chunk_tokenizer_name,
+            "retrieve_k": retrieve_k,
+            "retrieval_scope": retrieval_scope,
+            "max_docs": max_docs,
+            "max_questions": max_questions,
+            "late_max_tokens_per_forward": late_max_tokens_per_forward,
+            "late_window_overlap_tokens": late_window_overlap_tokens,
+        },
     )
     run_dir = run_late_chunking_experiment(
         resolved_config=resolved_config,
