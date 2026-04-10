@@ -1,0 +1,56 @@
+dataset_name: qasper
+run_name: qasper__fixed-c200-o0__jina+qwen
+resume: true
+output_root: late_chunk_runs
+dataset_loader:
+  type: task_registry
+  dataset_name: qasper
+  split: test
+  config_name: default
+  docs_config_name: default
+  qa_config_name: default
+  qa_n: all
+  qa_selection_method: first
+  max_docs: 25
+  max_questions: null
+  selected_doc_ids: null
+  selected_query_ids: null
+  prepend_title: true
+chunking:
+  strategy: fixed
+  chunk_size: 200
+  overlap: 0
+  n_sentences: 1
+  sentence_overlap: 0
+  semantic_model_name: null
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+late_chunking:
+  enabled: true
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+  window_size_tokens: null
+retrievers:
+- name: jina
+  type: dense
+  model_name: jinaai/jina-embeddings-v2-small-en
+  normalize: true
+  distance_metric: cosine
+  pooling: mean
+- name: qwen
+  type: dense
+  model_name: Qwen/Qwen3-Embedding-8B
+  tokenizer_name: Qwen/Qwen3-Embedding-8B
+  normalize: true
+  distance_metric: cosine
+  pooling: last_token
+  padding_side: left
+  max_length: 32768
+  query_prompt: 'Instruct: Given a web search query, retrieve relevant passages that
+    answer the query
+
+    Query:'
+retrieval:
+  scope: per_document
+  retrieve_k: 10
+profiling:
+  capture_resource_usage: true

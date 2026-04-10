@@ -1,0 +1,6 @@
+{
+  "doc_id": "1909.00091",
+  "canonical_chunking_tokenizer_name": "jinaai/jina-embeddings-v2-small-en",
+  "canonical_full_document_token_count": 3844,
+  "encoders": {}
+}
