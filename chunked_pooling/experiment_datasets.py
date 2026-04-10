@@ -742,7 +742,7 @@ def _resolve_novelhopqa_books_root(raw_root: Optional[str]) -> Path:
     env_books_root = str(os.environ.get("NOVELHOPQA_BOOKS_ROOT") or "").strip()
     env_novelqa_root = str(os.environ.get("NOVELQA_DATASET_DIR") or "").strip()
     default_relative = (
-        Path(__file__).resolve().parents[1].parent
+        Path(__file__).resolve().parents[1]
         / "../passing_meta_tag/novelhopqa/book-corpus-root"
     ).resolve()
     candidates = [

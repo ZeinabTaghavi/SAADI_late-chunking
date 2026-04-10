@@ -695,6 +695,29 @@ def test_novelhopqa_loader_and_sampling_follow_reference_order(monkeypatch):
     assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["book:B30"]
 
 
+def test_novelhopqa_default_books_root_uses_repo_sibling(monkeypatch, tmp_path):
+    project_root = tmp_path / "SAADI-late-chunking"
+    package_dir = project_root / "chunked_pooling"
+    package_dir.mkdir(parents=True)
+
+    books_root = tmp_path / "passing_meta_tag" / "novelhopqa" / "book-corpus-root"
+    books_root.mkdir(parents=True)
+    (books_root / "bookmeta.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "chunked_pooling.experiment_datasets.__file__",
+        str(package_dir / "experiment_datasets.py"),
+    )
+    monkeypatch.delenv("NOVELHOPQA_BOOKS_ROOT", raising=False)
+    monkeypatch.delenv("NOVELQA_DATASET_DIR", raising=False)
+
+    resolved = __import__(
+        "chunked_pooling.experiment_datasets", fromlist=["x"]
+    )._resolve_novelhopqa_books_root(None)
+
+    assert resolved == books_root.resolve()
+
+
 def test_resolve_run_config_applies_explicit_overrides():
     default_experiment = {
         "dataset": {
