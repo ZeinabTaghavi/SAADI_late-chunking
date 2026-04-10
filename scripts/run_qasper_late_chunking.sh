@@ -21,7 +21,7 @@ DATASET_NAME="${DATASET_NAME:-qasper}"
 CONFIG_PATH="${CONFIG_PATH:-configs/experiments/qasper_retrieval_ablation.yaml}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-late_chunk_runs}"
 RUN_NAME="${RUN_NAME:-}"
-RETRIEVERS="${RETRIEVERS:-jina bm25}"
+RETRIEVERS="${RETRIEVERS:-jina}"
 RESUME="${RESUME:-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 

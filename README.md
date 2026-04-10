@@ -169,7 +169,7 @@ The runner also understands the relevant QASPER defaults from the SAADI-style re
 - `retrieval.retrieve_k`
 - `retrieval.scope`
 
-There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina bm25"`.
+There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina"`.
 
 ```bash
 bash scripts/run_qasper_late_chunking.sh

@@ -15,6 +15,44 @@ from chunked_pooling.experiment_chunking import resolve_model_max_length
 from chunked_pooling.wrappers import load_model
 
 
+def _sanitize_positive_length(value) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or value > 100_000:
+        return None
+    return value
+
+
+def _resolve_model_context_window(model, tokenizer) -> int:
+    candidates: List[int] = []
+
+    tokenizer_max_length = _sanitize_positive_length(
+        getattr(tokenizer, "model_max_length", None)
+    )
+    if tokenizer_max_length is not None:
+        candidates.append(tokenizer_max_length)
+
+    model_config = getattr(model, "config", None)
+    if model_config is not None:
+        for attribute_name in (
+            "max_position_embeddings",
+            "n_positions",
+            "max_seq_len",
+            "seq_length",
+        ):
+            value = _sanitize_positive_length(getattr(model_config, attribute_name, None))
+            if value is not None:
+                candidates.append(value)
+
+    if not candidates:
+        return resolve_model_max_length(tokenizer)
+    return min(candidates)
+
+
 def _to_numpy(value) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value
@@ -54,6 +92,7 @@ class DenseRetriever:
     use_builtin_query_encoder: bool
     device: torch.device
     max_length: int
+    model_context_window: int
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "DenseRetriever":
@@ -76,6 +115,14 @@ class DenseRetriever:
             if not document_override:
                 document_instruction = instructions[1]
 
+        model_context_window = _resolve_model_context_window(model, tokenizer)
+        configured_max_length = _sanitize_positive_length(config.get("max_length"))
+        max_length = (
+            min(configured_max_length, model_context_window)
+            if configured_max_length is not None
+            else model_context_window
+        )
+
         return cls(
             name=str(config["name"]),
             model_name=str(config["model_name"]),
@@ -89,7 +136,8 @@ class DenseRetriever:
             document_instruction=document_instruction,
             use_builtin_query_encoder=hasattr(model, "encode_queries") and not query_override,
             device=getattr(model, "device", torch.device("cpu")),
-            max_length=int(config.get("max_length") or resolve_model_max_length(tokenizer)),
+            max_length=max_length,
+            model_context_window=model_context_window,
         )
 
     def _tokenize_with_prompt(self, texts: Sequence[str], prompt: str):
@@ -138,12 +186,23 @@ class DenseRetriever:
             )["input_ids"]
         )
 
+    def effective_max_tokens_per_forward(
+        self, requested_max_tokens_per_forward: Optional[int]
+    ) -> int:
+        requested = _sanitize_positive_length(requested_max_tokens_per_forward)
+        if requested is None:
+            return self.model_context_window
+        return min(requested, self.model_context_window)
+
     def _forward_document_embeddings(
         self,
         text: str,
         max_tokens_per_forward: Optional[int],
         window_overlap_tokens: int,
     ) -> Tuple[torch.Tensor, Dict[str, object]]:
+        effective_max_tokens_per_forward = self.effective_max_tokens_per_forward(
+            max_tokens_per_forward
+        )
         prompt = self.document_instruction or ""
         model_inputs = self.tokenizer(
             prompt + text,
@@ -157,14 +216,13 @@ class DenseRetriever:
             model_inputs = {key: value.to(self.device) for key, value in model_inputs.items()}
 
         if (
-            max_tokens_per_forward is None
-            or max_tokens_per_forward <= 0
-            or total_input_tokens <= max_tokens_per_forward
+            total_input_tokens <= effective_max_tokens_per_forward
         ):
             with torch.no_grad():
                 outputs = self.model(**model_inputs)
             return outputs[0], {
                 "segmentation_or_windowing_strategy": "single_forward",
+                "effective_max_tokens_per_forward": effective_max_tokens_per_forward,
                 "encoder_windows": [
                     {
                         "window_index": 0,
@@ -178,17 +236,21 @@ class DenseRetriever:
                 "full_model_input_token_count": total_input_tokens,
             }
 
-        if window_overlap_tokens < 0 or window_overlap_tokens >= max_tokens_per_forward:
+        if (
+            window_overlap_tokens < 0
+            or window_overlap_tokens >= effective_max_tokens_per_forward
+        ):
             raise ValueError(
-                "window_overlap_tokens must be >= 0 and < max_tokens_per_forward."
+                "window_overlap_tokens must be >= 0 and smaller than the effective "
+                "max_tokens_per_forward for this retriever."
             )
 
         outputs = []
         windows = []
-        step = max_tokens_per_forward - window_overlap_tokens
+        step = effective_max_tokens_per_forward - window_overlap_tokens
         window_index = 0
         for start in range(0, total_input_tokens, step):
-            end = min(start + max_tokens_per_forward, total_input_tokens)
+            end = min(start + effective_max_tokens_per_forward, total_input_tokens)
             window_inputs = {
                 key: value[:, start:end] for key, value in model_inputs.items()
             }
@@ -220,6 +282,7 @@ class DenseRetriever:
 
         return torch.cat(outputs, dim=1), {
             "segmentation_or_windowing_strategy": "sliding_windows",
+            "effective_max_tokens_per_forward": effective_max_tokens_per_forward,
             "encoder_windows": windows,
             "full_model_input_token_count": total_input_tokens,
         }

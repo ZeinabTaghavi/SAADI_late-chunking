@@ -32,7 +32,7 @@ late_chunking:
   window_overlap_tokens: 256
 
 retrieval:
-  retriever: bm25
+  retriever: jina
   retrieve_k: 5
   mode: both
   scope: per_document

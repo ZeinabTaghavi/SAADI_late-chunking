@@ -412,6 +412,12 @@ def run_late_chunking_experiment(
             dense_chunk_ids_file = retriever_dir / "chunk_ids.json"
             dense_indexes[retriever_name] = {}
             reused_dense_index = resume and dense_matrix_file.exists() and dense_chunk_ids_file.exists()
+            requested_max_tokens_per_forward = resolved_config["late_chunking"].get(
+                "max_tokens_per_forward"
+            )
+            effective_max_tokens_per_forward = retriever.effective_max_tokens_per_forward(
+                requested_max_tokens_per_forward
+            )
 
             if reused_dense_index:
                 embedding_matrix = np.load(dense_matrix_file)
@@ -438,10 +444,7 @@ def run_late_chunking_experiment(
                     doc_vectors, window_metadata = retriever.encode_late_chunks(
                         text=str(selected_bundle.documents[doc_id]["text"]),
                         model_token_spans=model_token_spans,
-                        max_tokens_per_forward=resolved_config["late_chunking"].get(
-                            "max_tokens_per_forward"
-                        )
-                        or retriever.max_length,
+                        max_tokens_per_forward=effective_max_tokens_per_forward,
                         window_overlap_tokens=int(
                             resolved_config["late_chunking"].get("window_overlap_tokens") or 0
                         ),
@@ -470,10 +473,10 @@ def run_late_chunking_experiment(
                         "encoder_model": retriever.model_name,
                         "tokenizer_name": retriever.tokenizer_name,
                         "full_document_token_count": encoder_token_count,
-                        "max_tokens_per_forward": resolved_config["late_chunking"].get(
-                            "max_tokens_per_forward"
-                        )
-                        or retriever.max_length,
+                        "requested_max_tokens_per_forward": requested_max_tokens_per_forward,
+                        "max_tokens_per_forward": window_metadata[
+                            "effective_max_tokens_per_forward"
+                        ],
                         "segmentation_or_windowing_strategy": window_metadata[
                             "segmentation_or_windowing_strategy"
                         ],
@@ -515,6 +518,7 @@ def run_late_chunking_experiment(
                 ),
                 "normalization": retriever.normalize,
                 "distance_metric": retriever.distance_metric,
+                "effective_max_tokens_per_forward": effective_max_tokens_per_forward,
                 "peak_cpu_memory_mb": None if peak_cpu_memory_mb is None else round(peak_cpu_memory_mb, 4),
                 "peak_gpu_memory_mb": None if peak_gpu_memory_mb is None else round(peak_gpu_memory_mb, 4),
             }
