@@ -1,6 +1,10 @@
 import pytest
 
-from chunked_pooling.experiment_config import parse_retriever_specs, resolve_run_config
+from chunked_pooling.experiment_config import (
+    parse_retriever_specs,
+    resolve_run_config,
+    resolve_run_name,
+)
 from chunked_pooling.experiment_datasets import load_dataset_bundle, select_dataset_subset
 from chunked_pooling.experiment_retrievers import (
     _build_model_load_kwargs,
@@ -716,6 +720,21 @@ def test_novelhopqa_default_books_root_uses_repo_sibling(monkeypatch, tmp_path):
     )._resolve_novelhopqa_books_root(None)
 
     assert resolved == books_root.resolve()
+
+
+def test_default_run_name_nests_retriever_then_chunk_folder():
+    run_name = resolve_run_name(
+        dataset_name="quality",
+        run_name_override=None,
+        chunking_config={
+            "strategy": "fixed",
+            "chunk_size": 300,
+            "overlap": 50,
+        },
+        retrievers=[{"name": "jina"}],
+    )
+
+    assert run_name == "jina/c300_o50"
 
 
 def test_resolve_run_config_applies_explicit_overrides():

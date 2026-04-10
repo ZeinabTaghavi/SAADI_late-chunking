@@ -102,7 +102,7 @@ if len(visible_devices) > 1 and importlib.util.find_spec("accelerate") is None:
 PY
 fi
 
-cmd=(
+base_cmd=(
   "${PYTHON_BIN}"
   "run_late_chunking_experiment.py"
   "--dataset-name" "${DATASET_NAME}"
@@ -120,33 +120,21 @@ cmd=(
 )
 
 if [[ -n "${N_SENTENCES}" ]]; then
-  cmd+=("--n-sentences" "${N_SENTENCES}")
+  base_cmd+=("--n-sentences" "${N_SENTENCES}")
 fi
 
 if [[ -n "${SENTENCE_OVERLAP}" ]]; then
-  cmd+=("--sentence-overlap" "${SENTENCE_OVERLAP}")
+  base_cmd+=("--sentence-overlap" "${SENTENCE_OVERLAP}")
 fi
 
 if [[ -n "${MAX_QUESTIONS}" ]]; then
-  cmd+=("--max-questions" "${MAX_QUESTIONS}")
-fi
-
-if [[ -n "${RUN_NAME}" ]]; then
-  cmd+=("--run-name" "${RUN_NAME}")
+  base_cmd+=("--max-questions" "${MAX_QUESTIONS}")
 fi
 
 if [[ "${RESUME}" == "0" ]]; then
-  cmd+=("--no-resume")
+  base_cmd+=("--no-resume")
 else
-  cmd+=("--resume")
-fi
-
-for retriever in ${RETRIEVERS}; do
-  cmd+=("--retriever" "${retriever}")
-done
-
-if [[ "$#" -gt 0 ]]; then
-  cmd+=("$@")
+  base_cmd+=("--resume")
 fi
 
 printf 'Running late-chunking experiment with environment defaults:\n'
@@ -170,8 +158,31 @@ printf '  N_SENTENCES=%s\n' "${N_SENTENCES:-<unused>}"
 printf '  SENTENCE_OVERLAP=%s\n' "${SENTENCE_OVERLAP:-<unused>}"
 printf '  LATE_MAX_TOKENS_PER_FORWARD=%s\n' "${LATE_MAX_TOKENS_PER_FORWARD}"
 printf '  LATE_WINDOW_OVERLAP_TOKENS=%s\n' "${LATE_WINDOW_OVERLAP_TOKENS}"
-printf '\nCommand:\n  '
-printf '%q ' "${cmd[@]}"
-printf '\n\n'
+printf '\n'
 
-"${cmd[@]}"
+if [[ "${CHUNKING_STRATEGY}" == "fixed" ]]; then
+  CHUNK_FOLDER="c${CHUNK_SIZE}_o${CHUNK_OVERLAP}"
+else
+  CHUNK_FOLDER="n${N_SENTENCES:-1}_o${SENTENCE_OVERLAP:-0}"
+fi
+
+for retriever in ${RETRIEVERS}; do
+  cmd=("${base_cmd[@]}")
+  if [[ -n "${RUN_NAME}" ]]; then
+    run_name_for_retriever="${retriever}/${RUN_NAME}"
+  else
+    run_name_for_retriever="${retriever}/${CHUNK_FOLDER}"
+  fi
+  cmd+=("--run-name" "${run_name_for_retriever}")
+  cmd+=("--retriever" "${retriever}")
+
+  if [[ "$#" -gt 0 ]]; then
+    cmd+=("$@")
+  fi
+
+  printf 'Command for retriever %s:\n  ' "${retriever}"
+  printf '%q ' "${cmd[@]}"
+  printf '\n\n'
+
+  "${cmd[@]}"
+done

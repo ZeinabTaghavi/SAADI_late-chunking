@@ -236,10 +236,14 @@ def resolve_run_name(
     strategy = str(chunking_config.get("strategy") or "fixed")
     if strategy == "fixed":
         size_part = f"c{chunking_config.get('chunk_size')}"
+        overlap_value = chunking_config.get("overlap") or 0
     else:
         size_part = f"n{chunking_config.get('n_sentences')}"
-    overlap_part = f"o{chunking_config.get('overlap') or 0}"
-    return f"{dataset_name}__{strategy}-{size_part}-{overlap_part}__{retriever_names}"
+        overlap_value = chunking_config.get("sentence_overlap") or 0
+    overlap_part = f"o{overlap_value}"
+    if len(retrievers) == 1:
+        return f"{retriever_names}/{size_part}_{overlap_part}"
+    return f"combined/{retriever_names}/{size_part}_{overlap_part}"
 
 
 def resolve_run_config(

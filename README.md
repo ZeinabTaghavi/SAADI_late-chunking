@@ -229,6 +229,15 @@ DATASET_NAME=novelqa bash scripts/run_qasper_late_chunking.sh
 
 For NovelHopQA, the runner reads whole-book texts from the external corpus root. By default this project looks for `../passing_meta_tag/novelhopqa/book-corpus-root` relative to the repo, and it also respects `NOVELHOPQA_BOOKS_ROOT`.
 
+When using the launcher with multiple retrievers, it now runs one retriever at a time and stores outputs under:
+
+- `late_chunk_runs/<dataset>/<retriever>/c<chunk_size>_o<overlap>/...`
+
+For example:
+
+- `late_chunk_runs/quality/jina/c300_o0/...`
+- `late_chunk_runs/quality/qwen/c300_o0/...`
+
 For the full ablation grid, there is a separate batch launcher at `scripts/run_all_late_chunking_ablations.sh`. By default it runs:
 
 - all datasets: `qasper loogle narrativeqa quality novelqa`
