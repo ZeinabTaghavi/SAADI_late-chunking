@@ -124,9 +124,21 @@ logger = logging.getLogger(__name__)
 QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
 LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
 NARRATIVEQA_DATASET_NAMES = {"narrativeqa", "deepmind/narrativeqa"}
+QUALITY_DATASET_NAMES = {"quality", "tasksource/quality", "tasksource/quality"}
 LOOGLE_HF_DATASET_IDS = ("bigai-nlco/LooGLE", "bigainlco/LooGLE")
 LOOGLE_LEGACY_CONFIG_ALIASES = {
     "longdep_summarization": "summarization",
+}
+QUALITY_DATASET_ID = "tasksource/QuALITY"
+QUALITY_VALID_SPLITS = {"train", "validation"}
+QUALITY_SPLIT_ALIASES = {
+    "default": "validation",
+    "dev": "validation",
+    "val": "validation",
+    "valid": "validation",
+    "validation": "validation",
+    "test": "validation",
+    "train": "train",
 }
 
 
@@ -397,6 +409,186 @@ def load_narrativeqa_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
             "loader_type": "narrativeqa",
             "split": split,
             "config_name": cfg,
+            "qa_n": loader_config.get("qa_n", "all"),
+            "qa_selection_method": qa_selection_method,
+        },
+    )
+
+
+def _normalize_quality_split(split: Optional[str]) -> str:
+    raw = str(split or "validation").strip().lower()
+    normalized = QUALITY_SPLIT_ALIASES.get(raw, raw)
+    if normalized not in QUALITY_VALID_SPLITS:
+        raise ValueError(
+            "Unsupported QuALITY split. Use one of: train, validation "
+            f"(got: {split!r})."
+        )
+    return normalized
+
+
+def _load_quality_split(split_name: str):
+    try:
+        return datasets.load_dataset(QUALITY_DATASET_ID, split=split_name)
+    except TypeError:
+        return datasets.load_dataset(QUALITY_DATASET_ID)[split_name]
+
+
+def _quality_row_doc_id(row: Dict[str, Any], *, fallback_index: int) -> str:
+    for key in ("article_id", "document_id", "doc_id"):
+        value = row.get(key)
+        if isinstance(value, (int, str)) and str(value).strip():
+            return f"article:{str(value).strip()}"
+    title = row.get("title")
+    if isinstance(title, str) and title.strip():
+        safe_title = "_".join(title.strip().split())
+        return f"article:{safe_title}"
+    return f"article:{fallback_index}"
+
+
+def _quality_options_list(row: Dict[str, Any]) -> List[str]:
+    raw = row.get("options")
+    if isinstance(raw, list):
+        return [text for text in (_coerce_to_text(item).strip() for item in raw) if text]
+    return []
+
+
+def _quality_gold_option_index(row: Dict[str, Any], options: Sequence[str]) -> Optional[int]:
+    for key in ("gold_label", "writer_label"):
+        value = row.get(key)
+        try:
+            idx = int(value)
+        except Exception:
+            continue
+        if 1 <= idx <= len(options):
+            return idx - 1
+        if 0 <= idx < len(options):
+            return idx
+    return None
+
+
+def _quality_metadata(row: Dict[str, Any]) -> Dict[str, Any]:
+    metadata: Dict[str, Any] = {}
+    for key in ("title", "source", "author", "topic", "year"):
+        value = _coerce_to_text(row.get(key)).strip()
+        if value:
+            metadata[key] = value
+    difficult = row.get("difficult")
+    try:
+        if difficult is not None:
+            metadata["difficult"] = int(difficult)
+    except Exception:
+        pass
+    return metadata
+
+
+def load_quality_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
+    import random
+
+    split_name = _normalize_quality_split(str(loader_config.get("split") or "validation"))
+    config_name = loader_config.get("config_name") or "default"
+    qa_n = loader_config.get("qa_n", "all")
+    qa_selection_method = str(loader_config.get("qa_selection_method") or "first")
+
+    _ = config_name
+    logger.info(
+        "Loading QuALITY split=%s n=%s selection=%s",
+        split_name,
+        qa_n,
+        qa_selection_method,
+    )
+    rows = _load_quality_split(split_name)
+
+    documents: OrderedDict[str, Dict[str, object]] = OrderedDict()
+    qa_candidates: List[Dict[str, object]] = []
+
+    for row_index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        doc_id = _quality_row_doc_id(row, fallback_index=row_index)
+        article_text = _coerce_to_text(row.get("article")).strip()
+        if article_text and doc_id not in documents:
+            documents[doc_id] = {
+                **row,
+                "doc_id": doc_id,
+                "text": article_text,
+            }
+
+        if doc_id not in documents:
+            continue
+
+        question = _coerce_to_text(row.get("question")).strip()
+        if not question:
+            continue
+
+        options = _quality_options_list(row)
+        gold_idx = _quality_gold_option_index(row, options)
+        if gold_idx is None or gold_idx >= len(options):
+            continue
+
+        answer_text = options[gold_idx]
+        if not answer_text:
+            continue
+
+        candidate: Dict[str, object] = {
+            "query_id": str(row.get("question_unique_id") or f"{doc_id}:q{row_index}"),
+            "doc_id": doc_id,
+            "question": question,
+            "answers": [answer_text],
+            "retrieval_spans": [],
+            "choices": list(options),
+            "gold_option_index": gold_idx,
+            "gold_option_label": gold_idx + 1,
+            "source_row_index": row_index,
+            "raw_row": dict(row),
+        }
+        metadata = _quality_metadata(row)
+        if metadata:
+            candidate["metadata"] = metadata
+        qa_candidates.append(candidate)
+
+    total = len(qa_candidates)
+    if isinstance(qa_n, str):
+        qa_n = total if qa_n.lower() == "all" else int(qa_n)
+    qa_n = min(int(qa_n), total)
+    indices = list(range(total))
+    if qa_n < total:
+        indices = (
+            random.sample(indices, qa_n)
+            if qa_selection_method == "random"
+            else indices[:qa_n]
+        )
+
+    qa_entries: List[Dict[str, object]] = []
+    for qa_index in indices:
+        row = qa_candidates[qa_index]
+        qa_entries.append(
+            {
+                "query_id": row["query_id"],
+                "source_qa_index": qa_index,
+                "doc_id": row["doc_id"],
+                "document_id": row["doc_id"],
+                "question": row["question"],
+                "reference_answers": list(row["answers"]),
+                "answers": list(row["answers"]),
+                "retrieval_spans": [],
+                "evidence_spans": [],
+                "choices": list(row["choices"]),
+                "gold_option_index": row["gold_option_index"],
+                "gold_option_label": row["gold_option_label"],
+                "source_row_index": row["source_row_index"],
+                "raw_row": row["raw_row"],
+                "relevant_doc_ids": [row["doc_id"]],
+                **({"metadata": row["metadata"]} if "metadata" in row else {}),
+            }
+        )
+
+    return DatasetBundle(
+        documents=documents,
+        qa_entries=qa_entries,
+        metadata={
+            "loader_type": "quality",
+            "split": split_name,
+            "config_name": config_name,
             "qa_n": loader_config.get("qa_n", "all"),
             "qa_selection_method": qa_selection_method,
         },
@@ -968,12 +1160,14 @@ def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle
         return load_loogle_bundle(loader_config)
     if dataset_name in NARRATIVEQA_DATASET_NAMES:
         return load_narrativeqa_bundle(loader_config)
+    if dataset_name in QUALITY_DATASET_NAMES:
+        return load_quality_bundle(loader_config)
 
     if dataset_name not in DATASET_PRESETS:
         supported = ", ".join(sorted(DATASET_PRESETS))
         raise ValueError(
             f"Unsupported dataset '{loader_config['dataset_name']}'. "
-            f"Supported presets: {supported}, loogle, narrativeqa, qasper"
+            f"Supported presets: {supported}, loogle, narrativeqa, qasper, quality"
         )
 
     spec = dict(DATASET_PRESETS[dataset_name])

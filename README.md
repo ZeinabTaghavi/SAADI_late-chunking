@@ -152,7 +152,7 @@ python3 run_late_chunking_experiment.py \
   --retriever "name=bge,type=dense,model_name=BAAI/bge-base-en-v1.5"
 ```
 
-QASPER, LooGLE, and NarrativeQA are supported as dataset-specific loaders. This repository includes ready-to-run example configs at `configs/experiments/qasper_late_chunking.yaml`, `configs/experiments/qasper_retrieval_ablation.yaml`, `configs/experiments/loogle_retrieval_ablation.yaml`, and `configs/experiments/nqa_retrieval_ablation.yaml`.
+QASPER, LooGLE, NarrativeQA, and QuALITY are supported as dataset-specific loaders. This repository includes ready-to-run example configs at `configs/experiments/qasper_late_chunking.yaml`, `configs/experiments/qasper_retrieval_ablation.yaml`, `configs/experiments/loogle_retrieval_ablation.yaml`, `configs/experiments/nqa_retrieval_ablation.yaml`, and `configs/experiments/quality_retrieval_ablation.yaml`.
 
 ```bash
 python3 run_late_chunking_experiment.py \
@@ -176,6 +176,13 @@ python3 run_late_chunking_experiment.py \
   --retriever jina
 ```
 
+```bash
+python3 run_late_chunking_experiment.py \
+  --dataset-name quality \
+  --default-experiment configs/experiments/quality_retrieval_ablation.yaml \
+  --retriever jina
+```
+
 The runner also understands the relevant QASPER/LooGLE defaults from the SAADI-style reference YAMLs you shared:
 
 - `dataset.split`
@@ -191,7 +198,7 @@ The runner also understands the relevant QASPER/LooGLE defaults from the SAADI-s
 - `retrieval.retrieve_k`
 - `retrieval.scope`
 
-There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. It now supports `qasper`, `loogle`, and `narrativeqa` via `DATASET_NAME=...`, and by default launches with `RETRIEVERS="jina qwen"`.
+There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. It now supports `qasper`, `loogle`, `narrativeqa`, and `quality` via `DATASET_NAME=...`, and by default launches with `RETRIEVERS="jina qwen"`.
 
 ```bash
 bash scripts/run_qasper_late_chunking.sh
@@ -203,6 +210,10 @@ DATASET_NAME=loogle bash scripts/run_qasper_late_chunking.sh
 
 ```bash
 DATASET_NAME=narrativeqa bash scripts/run_qasper_late_chunking.sh
+```
+
+```bash
+DATASET_NAME=quality bash scripts/run_qasper_late_chunking.sh
 ```
 
 Useful overrides:

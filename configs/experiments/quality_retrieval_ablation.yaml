@@ -1,0 +1,66 @@
+output_dir: outputs/quality_ablation
+
+dataset:
+  name: quality
+  split: validation
+  config_name: default
+  qa_n: all
+  qa_selection_method: first
+
+ingest:
+  enabled: true
+  strategy: hierarchical
+  strategy_kwargs:
+    active_object_selector: word
+    max_objects: 5
+    max_aliases: 2
+    max_desc: 3
+  chunk_size: 300
+  chunk_overlap: 0
+  schedule: wavefront
+  wavefront_batch_size: 8
+  cache_save_every_steps: 100
+
+chunking:
+  strategy: fixed
+  chunk_size: 300
+  overlap: 0
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+
+late_chunking:
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+
+retrieval:
+  retriever: jina
+  retrieve_k: 5
+  mode: both
+  scope: per_document
+
+evaluation:
+  compute_per_query: true
+
+sample:
+  max_documents: 25
+
+model:
+  backend: vllm
+  model_id: Qwen/Qwen3-30B-A3B-Instruct-2507
+  device: cuda
+  alias: Qwen32BInst
+  load_chat_tokenizer: true
+  tensor_parallel_size: 4
+  dtype: bfloat16
+  gpu_memory_utilization: 0.9
+  generate:
+    max_tokens: 4096
+    temperature: 0.6
+    stop:
+      - "[END_JSON]"
+      - "<|im_end|>"
+      - "<|endoftext|>"
+  sampling:
+    top_p: 0.95
+
+output:
+  root: late_chunk_runs

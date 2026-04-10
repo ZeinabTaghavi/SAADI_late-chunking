@@ -150,6 +150,52 @@ def test_narrativeqa_yaml_mapping_matches_reference_defaults():
     assert any("ingest.strategy='hierarchical'" in note for note in notes)
 
 
+def test_quality_yaml_mapping_matches_reference_defaults():
+    default_experiment = {
+        "output_dir": "outputs/quality_ablation",
+        "dataset": {
+            "name": "quality",
+            "split": "validation",
+            "config_name": "default",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+        },
+        "ingest": {
+            "enabled": True,
+            "strategy": "hierarchical",
+            "chunk_size": 300,
+            "chunk_overlap": 0,
+        },
+        "retrieval": {
+            "retriever": "bm25",
+            "retrieve_k": 5,
+            "scope": "per_document",
+        },
+        "sample": {
+            "max_documents": 25,
+        },
+    }
+    retrievers = parse_retriever_specs([], default_experiment)
+    resolved_config, notes = resolve_run_config(
+        dataset_name="quality",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        resume=True,
+    )
+
+    assert resolved_config["dataset_loader"]["dataset_name"] == "quality"
+    assert resolved_config["dataset_loader"]["split"] == "validation"
+    assert resolved_config["dataset_loader"]["config_name"] == "default"
+    assert resolved_config["dataset_loader"]["qa_n"] == "all"
+    assert resolved_config["dataset_loader"]["qa_selection_method"] == "first"
+    assert resolved_config["dataset_loader"]["max_docs"] == 25
+    assert resolved_config["chunking"]["chunk_size"] == 300
+    assert resolved_config["chunking"]["overlap"] == 0
+    assert resolved_config["retrieval"]["scope"] == "per_document"
+    assert resolved_config["retrieval"]["retrieve_k"] == 5
+    assert any("ingest.strategy='hierarchical'" in note for note in notes)
+
+
 def test_qwen_retriever_alias_is_available():
     retrievers = parse_retriever_specs(["qwen"], {})
     assert retrievers[0]["name"] == "qwen"
@@ -462,6 +508,67 @@ def test_narrativeqa_loader_and_sampling_follow_reference_order(monkeypatch):
     )
     assert list(filtered_subset.documents.keys()) == ["doc-1"]
     assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["doc-1"]
+
+
+def test_quality_loader_and_sampling_follow_reference_order(monkeypatch):
+    fake_dataset = [
+        {
+            "article_id": "1001",
+            "article": "First article text.",
+            "question": "Who solved the case?",
+            "options": ["Alice", "Bob", "Carol", "Dan"],
+            "gold_label": 1,
+            "question_unique_id": "q-1",
+            "title": "Case One",
+            "difficult": 1,
+        },
+        {
+            "article_id": "1002",
+            "article": "Second article text.",
+            "question": "Where did they travel?",
+            "options": ["Rome", "Bern", "Paris", "Oslo"],
+            "writer_label": 2,
+            "question_unique_id": "q-2",
+        },
+    ]
+
+    monkeypatch.setattr(
+        "chunked_pooling.experiment_datasets._load_quality_split",
+        lambda split_name: fake_dataset,
+    )
+
+    bundle = load_dataset_bundle(
+        {
+            "type": "task_registry",
+            "dataset_name": "quality",
+            "split": "validation",
+            "config_name": "default",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+        }
+    )
+
+    assert list(bundle.documents.keys()) == ["article:1001", "article:1002"]
+    assert bundle.documents["article:1001"]["text"] == "First article text."
+    assert len(bundle.qa_entries) == 2
+    assert bundle.qa_entries[0]["query_id"] == "q-1"
+    assert bundle.qa_entries[0]["doc_id"] == "article:1001"
+    assert bundle.qa_entries[0]["reference_answers"] == ["Alice"]
+    assert bundle.qa_entries[0]["choices"] == ["Alice", "Bob", "Carol", "Dan"]
+    assert bundle.qa_entries[0]["gold_option_index"] == 0
+    assert bundle.qa_entries[0]["gold_option_label"] == 1
+    assert bundle.qa_entries[1]["query_id"] == "q-2"
+    assert bundle.qa_entries[1]["reference_answers"] == ["Bern"]
+    assert bundle.qa_entries[1]["gold_option_index"] == 1
+    assert bundle.qa_entries[1]["gold_option_label"] == 2
+
+    filtered_subset = select_dataset_subset(
+        bundle=bundle,
+        max_docs=1,
+        max_questions=None,
+    )
+    assert list(filtered_subset.documents.keys()) == ["article:1001"]
+    assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["article:1001"]
 
 
 def test_resolve_run_config_applies_explicit_overrides():
