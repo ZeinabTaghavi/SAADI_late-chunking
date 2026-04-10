@@ -152,7 +152,7 @@ python3 run_late_chunking_experiment.py \
   --retriever "name=bge,type=dense,model_name=BAAI/bge-base-en-v1.5"
 ```
 
-QASPER is supported as a dataset-specific loader. This repository includes a ready-to-run example config at `configs/experiments/qasper_late_chunking.yaml`:
+QASPER and LooGLE are supported as dataset-specific loaders. This repository includes ready-to-run example configs at `configs/experiments/qasper_late_chunking.yaml`, `configs/experiments/qasper_retrieval_ablation.yaml`, and `configs/experiments/loogle_retrieval_ablation.yaml`.
 
 ```bash
 python3 run_late_chunking_experiment.py \
@@ -162,7 +162,14 @@ python3 run_late_chunking_experiment.py \
   --retriever bm25
 ```
 
-The runner also understands the relevant QASPER defaults from the SAADI-style reference YAML you shared:
+```bash
+python3 run_late_chunking_experiment.py \
+  --dataset-name loogle \
+  --default-experiment configs/experiments/loogle_retrieval_ablation.yaml \
+  --retriever jina
+```
+
+The runner also understands the relevant QASPER/LooGLE defaults from the SAADI-style reference YAMLs you shared:
 
 - `dataset.split`
 - `dataset.config_name`
@@ -177,10 +184,14 @@ The runner also understands the relevant QASPER defaults from the SAADI-style re
 - `retrieval.retrieve_k`
 - `retrieval.scope`
 
-There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina qwen"`.
+There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. It now supports both `qasper` and `loogle` via `DATASET_NAME=...`, and by default launches with `RETRIEVERS="jina qwen"`.
 
 ```bash
 bash scripts/run_qasper_late_chunking.sh
+```
+
+```bash
+DATASET_NAME=loogle bash scripts/run_qasper_late_chunking.sh
 ```
 
 Useful overrides:

@@ -58,6 +58,52 @@ def test_qasper_yaml_mapping_matches_reference_defaults():
     assert any("ingest.strategy='hierarchical'" in note for note in notes)
 
 
+def test_loogle_yaml_mapping_matches_reference_defaults():
+    default_experiment = {
+        "output_dir": "outputs/loogle_ablation",
+        "dataset": {
+            "name": "loogle",
+            "split": "test",
+            "config_name": "shortdep_qa",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+        },
+        "ingest": {
+            "enabled": True,
+            "strategy": "hierarchical",
+            "chunk_size": 300,
+            "chunk_overlap": 0,
+        },
+        "retrieval": {
+            "retriever": "bm25",
+            "retrieve_k": 5,
+            "scope": "per_document",
+        },
+        "sample": {
+            "max_documents": 25,
+        },
+    }
+    retrievers = parse_retriever_specs([], default_experiment)
+    resolved_config, notes = resolve_run_config(
+        dataset_name="loogle",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        resume=True,
+    )
+
+    assert resolved_config["dataset_loader"]["dataset_name"] == "loogle"
+    assert resolved_config["dataset_loader"]["split"] == "test"
+    assert resolved_config["dataset_loader"]["config_name"] == "shortdep_qa"
+    assert resolved_config["dataset_loader"]["qa_n"] == "all"
+    assert resolved_config["dataset_loader"]["qa_selection_method"] == "first"
+    assert resolved_config["dataset_loader"]["max_docs"] == 25
+    assert resolved_config["chunking"]["chunk_size"] == 300
+    assert resolved_config["chunking"]["overlap"] == 0
+    assert resolved_config["retrieval"]["scope"] == "per_document"
+    assert resolved_config["retrieval"]["retrieve_k"] == 5
+    assert any("ingest.strategy='hierarchical'" in note for note in notes)
+
+
 def test_qwen_retriever_alias_is_available():
     retrievers = parse_retriever_specs(["qwen"], {})
     assert retrievers[0]["name"] == "qwen"
@@ -256,6 +302,59 @@ def test_qasper_loader_and_sampling_follow_reference_order(monkeypatch):
     )
     assert list(filtered_subset.documents.keys()) == ["doc-1"]
     assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["doc-1"]
+
+
+def test_loogle_loader_and_sampling_follow_reference_order(monkeypatch):
+    fake_dataset = {
+        "test": [
+            {
+                "title": "Doc One",
+                "context": "Document one context.",
+                "qa_pairs": '[{"Q": "Question one?", "A": "Answer one", "S": "Evidence one"}]',
+            },
+            {
+                "doc_id": "doc-2",
+                "context": "Document two context.",
+                "question": "Question two?",
+                "answer": "Answer two",
+                "evidence": "Evidence two",
+            },
+        ]
+    }
+
+    monkeypatch.setattr(
+        "chunked_pooling.experiment_datasets._load_loogle_dataset",
+        lambda cfg=None: fake_dataset,
+    )
+
+    bundle = load_dataset_bundle(
+        {
+            "type": "task_registry",
+            "dataset_name": "loogle",
+            "split": "test",
+            "config_name": "shortdep_qa",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+        }
+    )
+
+    assert list(bundle.documents.keys()) == ["Doc One", "doc-2"]
+    assert bundle.documents["Doc One"]["text"] == "Document one context."
+    assert len(bundle.qa_entries) == 2
+    assert bundle.qa_entries[0]["query_id"] == "loogle_0"
+    assert bundle.qa_entries[0]["doc_id"] == "Doc One"
+    assert bundle.qa_entries[0]["reference_answers"] == ["Answer one"]
+    assert bundle.qa_entries[0]["retrieval_spans"] == ["Evidence one"]
+    assert bundle.qa_entries[1]["doc_id"] == "doc-2"
+    assert bundle.qa_entries[1]["reference_answers"] == ["Answer two"]
+
+    filtered_subset = select_dataset_subset(
+        bundle=bundle,
+        max_docs=1,
+        max_questions=None,
+    )
+    assert list(filtered_subset.documents.keys()) == ["Doc One"]
+    assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["Doc One"]
 
 
 def test_resolve_run_config_applies_explicit_overrides():

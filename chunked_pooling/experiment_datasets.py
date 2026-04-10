@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import ast
 import logging
 import json
+import os
 from collections import OrderedDict
 from dataclasses import dataclass
 from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import datasets
 
@@ -120,6 +122,11 @@ DATASET_PRESETS = {
 
 logger = logging.getLogger(__name__)
 QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
+LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
+LOOGLE_HF_DATASET_IDS = ("bigai-nlco/LooGLE", "bigainlco/LooGLE")
+LOOGLE_LEGACY_CONFIG_ALIASES = {
+    "longdep_summarization": "summarization",
+}
 
 
 @dataclass
@@ -258,6 +265,328 @@ def _load_qasper_dataset(*, cfg: Optional[str]):
                 "`trust_remote_code=True`, or rely on the parquet-converted branch."
             ) from exc
         raise
+
+
+def _normalize_loogle_requested_config(requested: Optional[str]) -> str:
+    raw = str(requested or "").strip()
+    if not raw:
+        return "shortdep_qa"
+    return LOOGLE_LEGACY_CONFIG_ALIASES.get(raw, raw)
+
+
+def _loogle_config_candidates(requested: Optional[str]) -> List[str]:
+    normalized = _normalize_loogle_requested_config(requested)
+    out = [normalized]
+    for old_name, new_name in LOOGLE_LEGACY_CONFIG_ALIASES.items():
+        if normalized == new_name:
+            out.append(old_name)
+        elif normalized == old_name:
+            out.append(new_name)
+    return out
+
+
+def _get_loogle_config_names(dataset_name: str) -> List[str]:
+    major = _datasets_version_major()
+    kwargs: Dict[str, object] = {}
+    if major is not None and major >= 4:
+        kwargs["revision"] = "refs/convert/parquet"
+    try:
+        try:
+            return list(datasets.get_dataset_config_names(dataset_name, **kwargs) or [])
+        except TypeError:
+            return list(datasets.get_dataset_config_names(dataset_name) or [])
+    except Exception:
+        return []
+
+
+def _resolve_loogle_dataset_and_config(
+    requested_config_name: Optional[str],
+) -> tuple[str, Optional[str]]:
+    desired_candidates = _loogle_config_candidates(requested_config_name)
+    for dataset_name in LOOGLE_HF_DATASET_IDS:
+        configs = _get_loogle_config_names(dataset_name)
+        if not configs:
+            continue
+        for cfg in desired_candidates:
+            if cfg in configs:
+                return dataset_name, cfg
+        if "shortdep_qa" in configs:
+            return dataset_name, "shortdep_qa"
+        return dataset_name, configs[0]
+    fallback_config = desired_candidates[0] if desired_candidates else None
+    return LOOGLE_HF_DATASET_IDS[0], fallback_config
+
+
+def _load_loogle_dataset(*, cfg: Optional[str]):
+    major = _datasets_version_major()
+    preferred_name, preferred_cfg = _resolve_loogle_dataset_and_config(cfg)
+    dataset_order = [preferred_name] + [
+        name for name in LOOGLE_HF_DATASET_IDS if name != preferred_name
+    ]
+    cfg_candidates: List[Optional[str]] = [preferred_cfg]
+    for candidate in _loogle_config_candidates(cfg):
+        if candidate not in cfg_candidates:
+            cfg_candidates.append(candidate)
+
+    kwargs_candidates: List[Dict[str, object]] = []
+    if major is not None and major >= 4:
+        kwargs_candidates.append({"revision": "refs/convert/parquet"})
+    kwargs_candidates.append({})
+    if major is None or major < 4:
+        kwargs_candidates.append({"trust_remote_code": True})
+
+    def _attempt_load(*, force_offline: bool):
+        prev_hub_offline = os.environ.get("HF_HUB_OFFLINE")
+        prev_datasets_offline = os.environ.get("HF_DATASETS_OFFLINE")
+        offline_download_config = None
+        if force_offline:
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            os.environ["HF_DATASETS_OFFLINE"] = "1"
+            try:
+                from datasets import DownloadConfig
+
+                offline_download_config = DownloadConfig(local_files_only=True)
+            except Exception:
+                offline_download_config = None
+        last_exc: Optional[Exception] = None
+        try:
+            for dataset_name in dataset_order:
+                for cfg_name in cfg_candidates:
+                    for kwargs in kwargs_candidates:
+                        call_kwargs = dict(kwargs)
+                        if (
+                            force_offline
+                            and offline_download_config is not None
+                            and "download_config" not in call_kwargs
+                        ):
+                            call_kwargs["download_config"] = offline_download_config
+                        try:
+                            return (
+                                datasets.load_dataset(
+                                    dataset_name,
+                                    name=cfg_name,
+                                    **call_kwargs,
+                                )
+                                if cfg_name
+                                else datasets.load_dataset(dataset_name, **call_kwargs)
+                            )
+                        except TypeError:
+                            try:
+                                return (
+                                    datasets.load_dataset(dataset_name, name=cfg_name)
+                                    if cfg_name
+                                    else datasets.load_dataset(dataset_name)
+                                )
+                            except Exception as exc:
+                                last_exc = exc
+                        except Exception as exc:
+                            last_exc = exc
+                            continue
+            return last_exc
+        finally:
+            if force_offline:
+                if prev_hub_offline is None:
+                    os.environ.pop("HF_HUB_OFFLINE", None)
+                else:
+                    os.environ["HF_HUB_OFFLINE"] = prev_hub_offline
+                if prev_datasets_offline is None:
+                    os.environ.pop("HF_DATASETS_OFFLINE", None)
+                else:
+                    os.environ["HF_DATASETS_OFFLINE"] = prev_datasets_offline
+
+    first_try = _attempt_load(force_offline=False)
+    if not isinstance(first_try, Exception):
+        return first_try
+
+    second_try = _attempt_load(force_offline=True)
+    if not isinstance(second_try, Exception):
+        return second_try
+
+    requested = cfg if cfg is not None else "default"
+    raise RuntimeError(
+        f"Failed to load LooGLE dataset (requested config={requested!r}) from any "
+        f"known dataset id: {LOOGLE_HF_DATASET_IDS}."
+    ) from second_try
+
+
+def _extract_loogle_document_text(row: Dict[str, Any]) -> Optional[str]:
+    for key in ("context", "input", "document", "text", "article", "passage"):
+        text = _coerce_to_text(row.get(key)).strip()
+        if text:
+            return text
+    return None
+
+
+def _extract_loogle_doc_id(row: Dict[str, Any], *, fallback_index: int) -> str:
+    for key in ("doc_id", "document_id", "docid", "title"):
+        value = row.get(key)
+        if isinstance(value, (str, int)) and str(value).strip():
+            return str(value).strip()
+    return f"doc_{fallback_index}"
+
+
+def _to_text_list(value: Any) -> List[str]:
+    out: List[str] = []
+    if value is None:
+        return out
+    if isinstance(value, str):
+        stripped = value.strip()
+        return [stripped] if stripped else []
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            out.extend(_to_text_list(item))
+        return out
+    text = _coerce_to_text(value).strip()
+    if text:
+        out.append(text)
+    return out
+
+
+def _parse_loogle_qa_pairs(raw: Any) -> List[Dict[str, Any]]:
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    if isinstance(raw, str):
+        txt = raw.strip()
+        if not txt:
+            return []
+        try:
+            parsed = json.loads(txt)
+            if isinstance(parsed, list):
+                return [item for item in parsed if isinstance(item, dict)]
+        except Exception:
+            pass
+        try:
+            parsed = ast.literal_eval(txt)
+            if isinstance(parsed, list):
+                return [item for item in parsed if isinstance(item, dict)]
+        except Exception:
+            pass
+    return []
+
+
+def _iter_rows_for_split(dataset_dict: Any, *, split: str) -> Iterable[Dict[str, Any]]:
+    rows = dataset_dict[split]
+    for row in rows:
+        if isinstance(row, dict):
+            yield row
+
+
+def load_loogle_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
+    import random
+
+    split = str(loader_config.get("split") or "test")
+    config_name = loader_config.get("config_name") or "shortdep_qa"
+    qa_n = loader_config.get("qa_n", "all")
+    qa_selection_method = str(loader_config.get("qa_selection_method") or "first")
+
+    logger.info(
+        "Loading LooGLE split=%s config=%s n=%s selection=%s",
+        split,
+        config_name,
+        qa_n,
+        qa_selection_method,
+    )
+    dataset_dict = _load_loogle_dataset(cfg=config_name)
+
+    documents: OrderedDict[str, Dict[str, object]] = OrderedDict()
+    qa_candidates: List[Dict[str, object]] = []
+
+    for row_index, row in enumerate(_iter_rows_for_split(dataset_dict, split=split)):
+        doc_id = _extract_loogle_doc_id(row, fallback_index=row_index)
+        text = _extract_loogle_document_text(row) or ""
+        if text and doc_id not in documents:
+            documents[doc_id] = {
+                **row,
+                "doc_id": doc_id,
+                "text": text,
+            }
+
+        qa_pairs = _parse_loogle_qa_pairs(row.get("qa_pairs"))
+        if qa_pairs:
+            for pair_index, pair in enumerate(qa_pairs):
+                question = _coerce_to_text(pair.get("Q") or pair.get("question")).strip()
+                if not question:
+                    continue
+                answer_texts = _to_text_list(pair.get("A") or pair.get("answer"))
+                spans = _to_text_list(pair.get("S") or pair.get("evidence"))
+                if answer_texts or spans:
+                    qa_candidates.append(
+                        {
+                            "doc_id": doc_id,
+                            "question": question,
+                            "answers": answer_texts,
+                            "retrieval_spans": spans,
+                            "source_row_index": row_index,
+                            "source_pair_index": pair_index,
+                            "raw_qa_pair": pair,
+                        }
+                    )
+            continue
+
+        question = _coerce_to_text(
+            row.get("question") or row.get("Q") or row.get("query")
+        ).strip()
+        if not question:
+            continue
+        answer_texts = _to_text_list(row.get("answer") or row.get("A") or row.get("answers"))
+        spans = _to_text_list(row.get("evidence") or row.get("S") or row.get("span"))
+        if answer_texts or spans:
+            qa_candidates.append(
+                {
+                    "doc_id": doc_id,
+                    "question": question,
+                    "answers": answer_texts,
+                    "retrieval_spans": spans,
+                    "source_row_index": row_index,
+                    "source_pair_index": None,
+                    "raw_qa_pair": None,
+                }
+            )
+
+    total = len(qa_candidates)
+    if isinstance(qa_n, str):
+        qa_n = total if qa_n.lower() == "all" else int(qa_n)
+    qa_n = min(int(qa_n), total)
+    indices = list(range(total))
+    if qa_n < total:
+        indices = (
+            random.sample(indices, qa_n)
+            if qa_selection_method == "random"
+            else indices[:qa_n]
+        )
+
+    qa_entries: List[Dict[str, object]] = []
+    for qa_index in indices:
+        row = qa_candidates[qa_index]
+        qa_entries.append(
+            {
+                "query_id": f"loogle_{qa_index}",
+                "source_qa_index": qa_index,
+                "doc_id": row["doc_id"],
+                "document_id": row["doc_id"],
+                "question": row["question"],
+                "reference_answers": list(row["answers"]),
+                "answers": list(row["answers"]),
+                "retrieval_spans": list(row["retrieval_spans"]),
+                "evidence_spans": list(row["retrieval_spans"]),
+                "source_row_index": row["source_row_index"],
+                "source_pair_index": row["source_pair_index"],
+                "raw_qa_pair": row["raw_qa_pair"],
+                "relevant_doc_ids": [row["doc_id"]],
+            }
+        )
+
+    return DatasetBundle(
+        documents=documents,
+        qa_entries=qa_entries,
+        metadata={
+            "loader_type": "loogle",
+            "split": split,
+            "config_name": config_name,
+            "qa_n": loader_config.get("qa_n", "all"),
+            "qa_selection_method": qa_selection_method,
+        },
+    )
 
 
 def _qasper_documents(
@@ -499,12 +828,14 @@ def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle
     dataset_name = str(loader_config["dataset_name"]).lower()
     if dataset_name in QASPER_DATASET_NAMES:
         return load_qasper_bundle(loader_config)
+    if dataset_name in LOOGLE_DATASET_NAMES:
+        return load_loogle_bundle(loader_config)
 
     if dataset_name not in DATASET_PRESETS:
         supported = ", ".join(sorted(DATASET_PRESETS))
         raise ValueError(
             f"Unsupported dataset '{loader_config['dataset_name']}'. "
-            f"Supported presets: {supported}, qasper"
+            f"Supported presets: {supported}, loogle, qasper"
         )
 
     spec = dict(DATASET_PRESETS[dataset_name])

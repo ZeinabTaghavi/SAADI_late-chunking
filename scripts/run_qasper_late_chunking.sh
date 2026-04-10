@@ -18,12 +18,27 @@ export NOVELHOPQA_BOOKS_ROOT="${NOVELHOPQA_BOOKS_ROOT:-../passing_meta_tag/novel
 export NOVELHOPQA_SUBSET_MODE="${NOVELHOPQA_SUBSET_MODE:-1}"
 
 DATASET_NAME="${DATASET_NAME:-qasper}"
-CONFIG_PATH="${CONFIG_PATH:-configs/experiments/qasper_retrieval_ablation.yaml}"
+case "${DATASET_NAME}" in
+  qasper)
+    DEFAULT_CONFIG_PATH="configs/experiments/qasper_retrieval_ablation.yaml"
+    DEFAULT_CHUNK_SIZE="200"
+    ;;
+  loogle)
+    DEFAULT_CONFIG_PATH="configs/experiments/loogle_retrieval_ablation.yaml"
+    DEFAULT_CHUNK_SIZE="300"
+    ;;
+  *)
+    DEFAULT_CONFIG_PATH="configs/experiments/${DATASET_NAME}_retrieval_ablation.yaml"
+    DEFAULT_CHUNK_SIZE="200"
+    ;;
+esac
+
+CONFIG_PATH="${CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-late_chunk_runs}"
 RUN_NAME="${RUN_NAME:-}"
 RETRIEVERS="${RETRIEVERS:-jina qwen}"
 CHUNKING_STRATEGY="${CHUNKING_STRATEGY:-fixed}"
-CHUNK_SIZE="${CHUNK_SIZE:-200}"
+CHUNK_SIZE="${CHUNK_SIZE:-${DEFAULT_CHUNK_SIZE}}"
 CHUNK_OVERLAP="${CHUNK_OVERLAP:-0}"
 CHUNK_TOKENIZER_NAME="${CHUNK_TOKENIZER_NAME:-jinaai/jina-embeddings-v2-small-en}"
 N_SENTENCES="${N_SENTENCES:-}"
@@ -128,6 +143,8 @@ printf '  HF_HUB_CACHE=%s\n' "${HF_HUB_CACHE}"
 printf '  TRANSFORMERS_CACHE=%s\n' "${TRANSFORMERS_CACHE}"
 printf '  HF_DATASETS_CACHE=%s\n' "${HF_DATASETS_CACHE}"
 printf '  CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES}"
+printf '  DATASET_NAME=%s\n' "${DATASET_NAME}"
+printf '  CONFIG_PATH=%s\n' "${CONFIG_PATH}"
 printf '  RETRIEVERS=%s\n' "${RETRIEVERS}"
 printf '  CHUNKING_STRATEGY=%s\n' "${CHUNKING_STRATEGY}"
 printf '  CHUNK_SIZE=%s\n' "${CHUNK_SIZE}"
