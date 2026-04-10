@@ -1,0 +1,8 @@
+# Experiment outputs (often huge; GitHub max file size is 100 MB).
+# e.g. narrativeqa/.../selection/qa_entries.json can exceed 100 MB.
+late_chunk_runs/
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
