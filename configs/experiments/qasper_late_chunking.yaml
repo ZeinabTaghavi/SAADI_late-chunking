@@ -1,0 +1,29 @@
+dataset:
+  name: qasper
+  split: test
+  config_name: default
+  qa_n: all
+  qa_selection_method: first
+
+sample:
+  max_documents: 25
+
+chunking:
+  strategy: fixed
+  chunk_size: 200
+  overlap: 0
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+
+late_chunking:
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+
+retrieval:
+  scope: per_document
+  retrieve_k: 5
+
+retrievers:
+  - jina
+
+output:
+  root: late_chunk_runs

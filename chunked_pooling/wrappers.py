@@ -3,9 +3,13 @@ from typing import List, Optional, Union
 
 import torch
 import torch.nn as nn
-from sentence_transformers import SentenceTransformer
 from transformers import AutoModel
 from transformers.modeling_outputs import BaseModelOutputWithPooling
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ModuleNotFoundError:  # pragma: no cover - optional dependency at import time
+    SentenceTransformer = None
 
 
 def construct_document(doc):
@@ -68,6 +72,10 @@ class JinaEmbeddingsV3Wrapper(nn.Module):
 class NomicAIWrapper(nn.Module):
     def __init__(self, model_name, **model_kwargs):
         super().__init__()
+        if SentenceTransformer is None:
+            raise ImportError(
+                "sentence_transformers is required to use NomicAIWrapper."
+            )
         self._model = SentenceTransformer(
             model_name, trust_remote_code=True, **model_kwargs
         )
@@ -118,9 +126,11 @@ class NomicAIWrapper(nn.Module):
 
 MODEL_WRAPPERS = {
     'jinaai/jina-embeddings-v3': JinaEmbeddingsV3Wrapper,
-    'sentence-transformers/all-MiniLM-L6-v2': SentenceTransformer,
     'nomic-ai/nomic-embed-text-v1': NomicAIWrapper,
 }
+
+if SentenceTransformer is not None:
+    MODEL_WRAPPERS['sentence-transformers/all-MiniLM-L6-v2'] = SentenceTransformer
 
 MODELS_WITHOUT_PROMPT_NAME_ARG = [
     'jinaai/jina-embeddings-v2-small-en',

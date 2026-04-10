@@ -1,0 +1,308 @@
+from __future__ import annotations
+
+import math
+import re
+from collections import Counter
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+import torch
+from transformers import AutoTokenizer
+
+from chunked_pooling import chunked_pooling
+from chunked_pooling.experiment_chunking import resolve_model_max_length
+from chunked_pooling.wrappers import load_model
+
+
+def _to_numpy(value) -> np.ndarray:
+    if isinstance(value, np.ndarray):
+        return value
+    if torch.is_tensor(value):
+        return value.detach().cpu().numpy()
+    return np.asarray(value)
+
+
+def normalize_rows(matrix: np.ndarray) -> np.ndarray:
+    matrix = _to_numpy(matrix)
+    if matrix.ndim == 1:
+        matrix = matrix.reshape(1, -1)
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms = np.where(norms == 0, 1.0, norms)
+    return matrix / norms
+
+
+def _mean_pool(last_hidden_state, attention_mask):
+    expanded_mask = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
+    summed = torch.sum(last_hidden_state * expanded_mask, dim=1)
+    counts = torch.clamp(expanded_mask.sum(dim=1), min=1e-9)
+    return summed / counts
+
+
+@dataclass
+class DenseRetriever:
+    name: str
+    model_name: str
+    tokenizer_name: str
+    normalize: bool
+    distance_metric: str
+    model: object
+    tokenizer: object
+    has_instructions: bool
+    query_instruction: str
+    document_instruction: str
+    use_builtin_query_encoder: bool
+    device: torch.device
+    max_length: int
+
+    @classmethod
+    def from_config(cls, config: Dict[str, object]) -> "DenseRetriever":
+        model, has_instructions = load_model(str(config["model_name"]))
+        tokenizer_name = str(config.get("tokenizer_name") or config["model_name"])
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
+
+        if torch.cuda.is_available():
+            model = model.cuda()
+        model.eval()
+
+        query_override = config.get("query_prompt") is not None
+        document_override = config.get("document_prompt") is not None
+        query_instruction = str(config.get("query_prompt") or "")
+        document_instruction = str(config.get("document_prompt") or "")
+        if has_instructions and hasattr(model, "get_instructions"):
+            instructions = model.get_instructions()
+            if not query_override:
+                query_instruction = instructions[0]
+            if not document_override:
+                document_instruction = instructions[1]
+
+        return cls(
+            name=str(config["name"]),
+            model_name=str(config["model_name"]),
+            tokenizer_name=tokenizer_name,
+            normalize=bool(config.get("normalize", True)),
+            distance_metric=str(config.get("distance_metric") or "cosine"),
+            model=model,
+            tokenizer=tokenizer,
+            has_instructions=has_instructions,
+            query_instruction=query_instruction,
+            document_instruction=document_instruction,
+            use_builtin_query_encoder=hasattr(model, "encode_queries") and not query_override,
+            device=getattr(model, "device", torch.device("cpu")),
+            max_length=int(config.get("max_length") or resolve_model_max_length(tokenizer)),
+        )
+
+    def _tokenize_with_prompt(self, texts: Sequence[str], prompt: str):
+        prompt = prompt or ""
+        return self.tokenizer(
+            [prompt + text for text in texts],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+        )
+
+    def _generic_encode(self, texts: Sequence[str], prompt: str) -> np.ndarray:
+        inputs = self._tokenize_with_prompt(texts, prompt)
+        if self.device.type == "cuda":
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+
+        last_hidden_state = outputs[0]
+        embeddings = _mean_pool(last_hidden_state, inputs["attention_mask"])
+        embeddings = embeddings.detach().cpu().numpy()
+        return normalize_rows(embeddings) if self.normalize else embeddings
+
+    def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
+        if self.use_builtin_query_encoder and hasattr(self.model, "encode_queries"):
+            embeddings = self.model.encode_queries(list(texts))
+            embeddings = _to_numpy(embeddings)
+            return normalize_rows(embeddings) if self.normalize else embeddings
+
+        if hasattr(self.model, "encode") and not self.query_instruction:
+            embeddings = self.model.encode(list(texts))
+            embeddings = _to_numpy(embeddings)
+            return normalize_rows(embeddings) if self.normalize else embeddings
+
+        return self._generic_encode(texts, self.query_instruction)
+
+    def document_instruction_token_count(self) -> int:
+        if not self.document_instruction:
+            return 0
+        return len(
+            self.tokenizer(
+                self.document_instruction,
+                add_special_tokens=False,
+            )["input_ids"]
+        )
+
+    def _forward_document_embeddings(
+        self,
+        text: str,
+        max_tokens_per_forward: Optional[int],
+        window_overlap_tokens: int,
+    ) -> Tuple[torch.Tensor, Dict[str, object]]:
+        prompt = self.document_instruction or ""
+        model_inputs = self.tokenizer(
+            prompt + text,
+            return_tensors="pt",
+            padding=False,
+            truncation=False,
+        )
+        total_input_tokens = int(model_inputs["input_ids"].shape[1])
+
+        if self.device.type == "cuda":
+            model_inputs = {key: value.to(self.device) for key, value in model_inputs.items()}
+
+        if (
+            max_tokens_per_forward is None
+            or max_tokens_per_forward <= 0
+            or total_input_tokens <= max_tokens_per_forward
+        ):
+            with torch.no_grad():
+                outputs = self.model(**model_inputs)
+            return outputs[0], {
+                "segmentation_or_windowing_strategy": "single_forward",
+                "encoder_windows": [
+                    {
+                        "window_index": 0,
+                        "input_token_start": 0,
+                        "input_token_end": total_input_tokens,
+                        "dropped_left_tokens": 0,
+                        "kept_token_start": 0,
+                        "kept_token_end": total_input_tokens,
+                    }
+                ],
+                "full_model_input_token_count": total_input_tokens,
+            }
+
+        if window_overlap_tokens < 0 or window_overlap_tokens >= max_tokens_per_forward:
+            raise ValueError(
+                "window_overlap_tokens must be >= 0 and < max_tokens_per_forward."
+            )
+
+        outputs = []
+        windows = []
+        step = max_tokens_per_forward - window_overlap_tokens
+        window_index = 0
+        for start in range(0, total_input_tokens, step):
+            end = min(start + max_tokens_per_forward, total_input_tokens)
+            window_inputs = {
+                key: value[:, start:end] for key, value in model_inputs.items()
+            }
+            with torch.no_grad():
+                window_output = self.model(**window_inputs)[0]
+
+            dropped_left_tokens = 0 if start == 0 else window_overlap_tokens
+            kept_output = (
+                window_output
+                if dropped_left_tokens == 0
+                else window_output[:, dropped_left_tokens:]
+            )
+            kept_token_start = start + dropped_left_tokens
+            kept_token_end = start + int(window_output.shape[1])
+            windows.append(
+                {
+                    "window_index": window_index,
+                    "input_token_start": start,
+                    "input_token_end": end,
+                    "dropped_left_tokens": dropped_left_tokens,
+                    "kept_token_start": kept_token_start,
+                    "kept_token_end": kept_token_end,
+                }
+            )
+            outputs.append(kept_output)
+            window_index += 1
+            if end >= total_input_tokens:
+                break
+
+        return torch.cat(outputs, dim=1), {
+            "segmentation_or_windowing_strategy": "sliding_windows",
+            "encoder_windows": windows,
+            "full_model_input_token_count": total_input_tokens,
+        }
+
+    def encode_late_chunks(
+        self,
+        text: str,
+        model_token_spans: Sequence[Tuple[int, int]],
+        max_tokens_per_forward: Optional[int],
+        window_overlap_tokens: int,
+    ) -> Tuple[np.ndarray, Dict[str, object]]:
+        token_embeddings, window_metadata = self._forward_document_embeddings(
+            text=text,
+            max_tokens_per_forward=max_tokens_per_forward,
+            window_overlap_tokens=window_overlap_tokens,
+        )
+        output_embeddings = chunked_pooling(
+            [token_embeddings],
+            [list(model_token_spans)],
+            max_length=None,
+        )[0]
+        matrix = np.vstack([_to_numpy(embedding) for embedding in output_embeddings])
+        if self.normalize:
+            matrix = normalize_rows(matrix)
+        return matrix, window_metadata
+
+
+class BM25Index:
+    def __init__(self, chunk_records: Sequence[Dict[str, object]]):
+        self.chunk_records = list(chunk_records)
+        self.chunk_ids = [str(chunk["chunk_id"]) for chunk in self.chunk_records]
+        self.doc_to_indices: Dict[str, List[int]] = {}
+        for index, chunk in enumerate(self.chunk_records):
+            self.doc_to_indices.setdefault(str(chunk["doc_id"]), []).append(index)
+
+        self.documents = [self._tokenize(str(chunk["raw_text"])) for chunk in self.chunk_records]
+        self.doc_lengths = np.array([len(tokens) for tokens in self.documents], dtype=np.float64)
+        self.average_doc_length = float(self.doc_lengths.mean()) if len(self.doc_lengths) else 0.0
+        self.term_frequencies = [Counter(tokens) for tokens in self.documents]
+
+        document_frequency = Counter()
+        for tokens in self.documents:
+            for term in set(tokens):
+                document_frequency[term] += 1
+
+        self.idf = {}
+        total_docs = len(self.documents)
+        for term, df in document_frequency.items():
+            self.idf[term] = math.log(1 + ((total_docs - df + 0.5) / (df + 0.5)))
+
+        self.k1 = 1.5
+        self.b = 0.75
+
+    @staticmethod
+    def _tokenize(text: str) -> List[str]:
+        return re.findall(r"\w+", text.lower())
+
+    def search(
+        self,
+        query_text: str,
+        top_k: int,
+        candidate_indices: Optional[Sequence[int]] = None,
+    ) -> Tuple[List[int], List[float]]:
+        query_terms = self._tokenize(query_text)
+        if candidate_indices is None:
+            candidate_indices = list(range(len(self.documents)))
+
+        scores = []
+        for index in candidate_indices:
+            tf = self.term_frequencies[index]
+            doc_length = self.doc_lengths[index]
+            score = 0.0
+            for term in query_terms:
+                if term not in tf:
+                    continue
+                idf = self.idf.get(term, 0.0)
+                numerator = tf[term] * (self.k1 + 1.0)
+                denominator = tf[term] + self.k1 * (
+                    1.0 - self.b + self.b * (doc_length / max(self.average_doc_length, 1.0))
+                )
+                score += idf * (numerator / max(denominator, 1e-9))
+            scores.append((index, float(score)))
+
+        scores.sort(key=lambda item: item[1], reverse=True)
+        top_hits = scores[: min(top_k, len(scores))]
+        return [index for index, _ in top_hits], [score for _, score in top_hits]

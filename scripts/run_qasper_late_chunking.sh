@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+
+cd "${PROJECT_ROOT}"
+
+export HF_HOME="${HF_HOME:-/mnt/cache/taghavi}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
+export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-$HF_HOME/transformers}"
+export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
+
+export TOKENIZERS_PARALLELISM="${TOKENIZERS_PARALLELISM:-false}"
+export VLLM_WORKER_MULTIPROC_METHOD="${VLLM_WORKER_MULTIPROC_METHOD:-spawn}"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3}"
+export NOVELHOPQA_BOOKS_ROOT="${NOVELHOPQA_BOOKS_ROOT:-../passing_meta_tag/novelhopqa/book-corpus-root}"
+export NOVELHOPQA_SUBSET_MODE="${NOVELHOPQA_SUBSET_MODE:-1}"
+
+DATASET_NAME="${DATASET_NAME:-qasper}"
+CONFIG_PATH="${CONFIG_PATH:-configs/experiments/qasper_retrieval_ablation.yaml}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-late_chunk_runs}"
+RUN_NAME="${RUN_NAME:-}"
+RETRIEVERS="${RETRIEVERS:-jina bm25}"
+RESUME="${RESUME:-1}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+cmd=(
+  "${PYTHON_BIN}"
+  "run_late_chunking_experiment.py"
+  "--dataset-name" "${DATASET_NAME}"
+  "--default-experiment" "${CONFIG_PATH}"
+  "--output-root" "${OUTPUT_ROOT}"
+)
+
+if [[ -n "${RUN_NAME}" ]]; then
+  cmd+=("--run-name" "${RUN_NAME}")
+fi
+
+if [[ "${RESUME}" == "0" ]]; then
+  cmd+=("--no-resume")
+else
+  cmd+=("--resume")
+fi
+
+for retriever in ${RETRIEVERS}; do
+  cmd+=("--retriever" "${retriever}")
+done
+
+if [[ "$#" -gt 0 ]]; then
+  cmd+=("$@")
+fi
+
+printf 'Running late-chunking experiment with environment defaults:\n'
+printf '  HF_HOME=%s\n' "${HF_HOME}"
+printf '  HF_HUB_CACHE=%s\n' "${HF_HUB_CACHE}"
+printf '  TRANSFORMERS_CACHE=%s\n' "${TRANSFORMERS_CACHE}"
+printf '  HF_DATASETS_CACHE=%s\n' "${HF_DATASETS_CACHE}"
+printf '  CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES}"
+printf '  RETRIEVERS=%s\n' "${RETRIEVERS}"
+printf '\nCommand:\n  '
+printf '%q ' "${cmd[@]}"
+printf '\n\n'
+
+"${cmd[@]}"

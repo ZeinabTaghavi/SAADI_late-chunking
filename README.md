@@ -112,6 +112,116 @@ If you only want to verify the small helper test that was added for this demo, y
 python3 -m pytest --noconftest tests/test_demo.py -q
 ```
 
+## Standalone Experiment Runner
+
+The repository now also includes a standalone late-chunking experiment runner that writes raw retrieval-side artifacts for later evaluation in another project.
+
+Run it like this:
+
+```bash
+python3 run_late_chunking_experiment.py \
+  --dataset-name LEMBWikimQARetrievalChunked \
+  --default-experiment path/to/default_experiment.yaml \
+  --retriever jina \
+  --retriever contriever \
+  --retriever bm25
+```
+
+Supported retriever aliases:
+
+- `jina`
+- `jina-base`
+- `jina-v3`
+- `contriever`
+- `bm25`
+
+You can also pass an explicit retriever spec:
+
+```bash
+python3 run_late_chunking_experiment.py \
+  --dataset-name SciFactChunked \
+  --default-experiment path/to/default_experiment.yaml \
+  --retriever "name=bge,type=dense,model_name=BAAI/bge-base-en-v1.5"
+```
+
+QASPER is supported as a dataset-specific loader. This repository includes a ready-to-run example config at `configs/experiments/qasper_late_chunking.yaml`:
+
+```bash
+python3 run_late_chunking_experiment.py \
+  --dataset-name qasper \
+  --default-experiment configs/experiments/qasper_late_chunking.yaml \
+  --retriever jina \
+  --retriever bm25
+```
+
+The runner also understands the relevant QASPER defaults from the SAADI-style reference YAML you shared:
+
+- `dataset.split`
+- `dataset.config_name`
+- `dataset.docs_config_name`
+- `dataset.qa_config_name`
+- `dataset.qa_n`
+- `dataset.qa_selection_method`
+- `sample.max_documents`
+- `sample.max_qa_entries`
+- `ingest.chunk_size`
+- `ingest.chunk_overlap`
+- `retrieval.retrieve_k`
+- `retrieval.scope`
+
+There is also a project-local launcher script at `scripts/run_qasper_late_chunking.sh` that sets the shared cache/GPU environment variables before running the experiment. By default it uses `configs/experiments/qasper_retrieval_ablation.yaml` and launches with `RETRIEVERS="jina bm25"`.
+
+```bash
+bash scripts/run_qasper_late_chunking.sh
+```
+
+Useful overrides:
+
+```bash
+RETRIEVERS="jina contriever bm25" \
+RUN_NAME="qasper__jina-contriever-bm25" \
+OUTPUT_ROOT="late_chunk_runs" \
+bash scripts/run_qasper_late_chunking.sh
+```
+
+The runner creates:
+
+- `late_chunk_runs/<dataset_name>/<run_name>/config`
+- `late_chunk_runs/<dataset_name>/<run_name>/selection`
+- `late_chunk_runs/<dataset_name>/<run_name>/corpus`
+- `late_chunk_runs/<dataset_name>/<run_name>/chunking`
+- `late_chunk_runs/<dataset_name>/<run_name>/indexing`
+- `late_chunk_runs/<dataset_name>/<run_name>/retrieval`
+- `late_chunk_runs/<dataset_name>/<run_name>/profiling`
+- `late_chunk_runs/<dataset_name>/<run_name>/run_manifest.json`
+
+Important behavior:
+
+- It does not compute gold labels.
+- It does not compute retrieval metrics.
+- It does not compute QA or RAG metrics.
+- Chunk ids are deterministic for a fixed dataset plus chunking config.
+- Canonical chunk boundaries are kept stable across retrievers.
+- Retriever-specific pooling spans are saved in `chunking/<doc_id>/encoding_map.json`.
+
+The default dataset loader uses built-in dataset presets from this repository. For offline testing or custom local data, the YAML can switch to the `local_json` loader:
+
+```yaml
+dataset_loader:
+  type: local_json
+  local_json:
+    documents_path: /abs/path/documents.jsonl
+    qa_path: /abs/path/qa.json
+chunking:
+  strategy: fixed
+  chunk_size: 256
+  overlap: 32
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+retrieval:
+  scope: per_document
+  retrieve_k: 10
+```
+
 ## Acknowledgement and References
 
 Thanks to Isabelle Mohr([@violenil](https://github.com/violenil)) for contributing some code and Scott Martens ([@scott-martens](https://github.com/scott-martens)) for reviewing the README.

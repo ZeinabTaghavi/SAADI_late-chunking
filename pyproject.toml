@@ -7,6 +7,7 @@ dependencies = [
     "torch==2.4.0",
     "mteb==1.14.20",
     "datasets==2.19.1",
+    "pyyaml==6.0.2",
     "llama-index-embeddings-huggingface==0.3.1",
     "llama-index==0.11.10",
     "click==8.1.7",
