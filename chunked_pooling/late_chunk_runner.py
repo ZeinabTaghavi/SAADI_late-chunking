@@ -17,7 +17,6 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import torch
 import yaml
-from transformers import AutoTokenizer
 
 from chunked_pooling.experiment_chunking import (
     build_chunk_records,
@@ -31,6 +30,7 @@ from chunked_pooling.experiment_datasets import (
     select_dataset_subset,
 )
 from chunked_pooling.experiment_retrievers import BM25Index, DenseRetriever
+from chunked_pooling.wrappers import load_tokenizer
 
 
 def _ensure_directory(path: Path) -> None:
@@ -176,10 +176,10 @@ def _load_or_build_chunks(
     Dict[str, int],
     str,
     str,
-]:
+    ]:
     chunking_signature = make_chunking_signature(chunking_config)
     tokenizer_name = str(chunking_config["tokenizer_name"])
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
+    tokenizer = load_tokenizer(tokenizer_name)
     chunks_by_doc: Dict[str, List[Dict[str, object]]] = {}
     token_counts: Dict[str, int] = {}
 

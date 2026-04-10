@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import math
 import re
 from collections import Counter
@@ -8,11 +9,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer
+import transformers
+from packaging.version import Version
 
 from chunked_pooling import chunked_pooling
 from chunked_pooling.experiment_chunking import resolve_model_max_length
-from chunked_pooling.wrappers import load_model
+from chunked_pooling.wrappers import load_model, load_tokenizer
 
 
 def _sanitize_positive_length(value) -> Optional[int]:
@@ -25,6 +27,131 @@ def _sanitize_positive_length(value) -> Optional[int]:
     if value <= 0 or value > 100_000:
         return None
     return value
+
+
+def _to_bool(value, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _parse_torch_dtype(value):
+    if value is None:
+        return None
+    if isinstance(value, torch.dtype):
+        return value
+
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return None
+    if normalized == "auto":
+        return "auto"
+
+    mapping = {
+        "float16": torch.float16,
+        "fp16": torch.float16,
+        "half": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "bf16": torch.bfloat16,
+        "float32": torch.float32,
+        "fp32": torch.float32,
+    }
+    if normalized not in mapping:
+        raise ValueError(f"Unsupported torch_dtype value: {value}")
+    return mapping[normalized]
+
+
+def _accelerate_is_available() -> bool:
+    return importlib.util.find_spec("accelerate") is not None
+
+
+def _unwrap_model(model):
+    return getattr(model, "_model", model)
+
+
+def _resolve_input_device(model) -> torch.device:
+    base_model = _unwrap_model(model)
+    hf_device_map = getattr(base_model, "hf_device_map", None)
+    if isinstance(hf_device_map, dict):
+        for mapped_device in hf_device_map.values():
+            if isinstance(mapped_device, int):
+                return torch.device(f"cuda:{mapped_device}")
+            if isinstance(mapped_device, str) and mapped_device.startswith("cuda"):
+                return torch.device(mapped_device)
+
+    for candidate in (model, base_model):
+        try:
+            return next(candidate.parameters()).device
+        except (AttributeError, StopIteration, TypeError):
+            continue
+
+    device = getattr(base_model, "device", None) or getattr(model, "device", None)
+    if isinstance(device, torch.device):
+        return device
+    if isinstance(device, str):
+        return torch.device(device)
+    return torch.device("cpu")
+
+
+def _validate_runtime_requirements(config: Dict[str, object]) -> None:
+    min_transformers_version = config.get("min_transformers_version")
+    if min_transformers_version is None:
+        return
+
+    installed_version = Version(transformers.__version__)
+    required_version = Version(str(min_transformers_version))
+    if installed_version >= required_version:
+        return
+
+    retriever_name = str(config.get("name") or config.get("model_name") or "retriever")
+    model_name = str(config.get("model_name") or retriever_name)
+    raise RuntimeError(
+        f"Retriever '{retriever_name}' requires transformers>={required_version}, "
+        f"but the current environment has transformers=={installed_version}. "
+        f"This is required to load '{model_name}' correctly; older versions fail on "
+        "the Qwen3 architecture with errors like KeyError: 'qwen3'. Upgrade the "
+        "environment or remove this retriever from --retriever / RETRIEVERS."
+    )
+
+
+def _build_model_load_kwargs(config: Dict[str, object]) -> Dict[str, object]:
+    load_kwargs: Dict[str, object] = {}
+
+    device_map = config.get("device_map")
+    if device_map is None and _to_bool(
+        config.get("shard_across_available_gpus"), default=False
+    ):
+        if torch.cuda.is_available() and torch.cuda.device_count() > 1:
+            device_map = "auto"
+
+    if device_map is not None:
+        if not _accelerate_is_available():
+            raise RuntimeError(
+                "Multi-GPU model sharding requires the 'accelerate' package. "
+                "Install accelerate or disable model sharding for this retriever."
+            )
+        load_kwargs["device_map"] = device_map
+        load_kwargs["low_cpu_mem_usage"] = _to_bool(
+            config.get("low_cpu_mem_usage"), default=True
+        )
+    elif "low_cpu_mem_usage" in config:
+        load_kwargs["low_cpu_mem_usage"] = _to_bool(
+            config.get("low_cpu_mem_usage"), default=False
+        )
+
+    torch_dtype = _parse_torch_dtype(config.get("torch_dtype"))
+    if torch_dtype is not None:
+        load_kwargs["torch_dtype"] = torch_dtype
+
+    attn_implementation = config.get("attn_implementation")
+    if attn_implementation:
+        load_kwargs["attn_implementation"] = str(attn_implementation)
+
+    return load_kwargs
 
 
 def _resolve_model_context_window(model, tokenizer) -> int:
@@ -110,13 +237,17 @@ class DenseRetriever:
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "DenseRetriever":
-        model, has_instructions = load_model(str(config["model_name"]))
+        _validate_runtime_requirements(config)
+        model_load_kwargs = _build_model_load_kwargs(config)
+        model, has_instructions = load_model(
+            str(config["model_name"]), **model_load_kwargs
+        )
         tokenizer_name = str(config.get("tokenizer_name") or config["model_name"])
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=True)
+        tokenizer = load_tokenizer(tokenizer_name)
         padding_side = str(config.get("padding_side") or getattr(tokenizer, "padding_side", "right"))
         tokenizer.padding_side = padding_side
 
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and "device_map" not in model_load_kwargs:
             model = model.cuda()
         model.eval()
 
@@ -151,7 +282,7 @@ class DenseRetriever:
             query_instruction=query_instruction,
             document_instruction=document_instruction,
             use_builtin_query_encoder=hasattr(model, "encode_queries") and not query_override,
-            device=getattr(model, "device", torch.device("cpu")),
+            device=_resolve_input_device(model),
             max_length=max_length,
             model_context_window=model_context_window,
             pooling=str(config.get("pooling") or "mean"),

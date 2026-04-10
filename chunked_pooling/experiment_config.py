@@ -41,11 +41,15 @@ RETRIEVER_ALIASES = {
         "type": "dense",
         "model_name": "Qwen/Qwen3-Embedding-8B",
         "tokenizer_name": "Qwen/Qwen3-Embedding-8B",
+        "min_transformers_version": "4.51.0",
         "normalize": True,
         "distance_metric": "cosine",
         "pooling": "last_token",
         "padding_side": "left",
         "max_length": 32768,
+        "torch_dtype": "auto",
+        "shard_across_available_gpus": True,
+        "low_cpu_mem_usage": True,
         "query_prompt": (
             "Instruct: Given a web search query, retrieve relevant passages that answer the query\n"
             "Query:"
@@ -119,6 +123,13 @@ def _to_int(value, default: Optional[int] = None) -> Optional[int]:
     return int(value)
 
 
+def _normalize_optional_string(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def parse_retriever_spec(spec) -> Dict[str, object]:
     if isinstance(spec, dict):
         base = copy.deepcopy(spec)
@@ -169,6 +180,20 @@ def parse_retriever_spec(spec) -> Dict[str, object]:
         base["max_length"] = _to_int(base["max_length"])
     if "window_overlap_tokens" in base:
         base["window_overlap_tokens"] = _to_int(base["window_overlap_tokens"], 0)
+    if "shard_across_available_gpus" in base:
+        base["shard_across_available_gpus"] = _to_bool(
+            base["shard_across_available_gpus"], default=False
+        )
+    if "low_cpu_mem_usage" in base:
+        base["low_cpu_mem_usage"] = _to_bool(base["low_cpu_mem_usage"], default=False)
+    if "device_map" in base:
+        base["device_map"] = _normalize_optional_string(base["device_map"])
+    if "torch_dtype" in base:
+        base["torch_dtype"] = _normalize_optional_string(base["torch_dtype"])
+    if "attn_implementation" in base:
+        base["attn_implementation"] = _normalize_optional_string(
+            base["attn_implementation"]
+        )
     return base
 
 

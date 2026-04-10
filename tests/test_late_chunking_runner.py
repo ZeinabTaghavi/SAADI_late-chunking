@@ -141,7 +141,7 @@ retrieval:
         )
 
     monkeypatch.setattr(
-        "chunked_pooling.late_chunk_runner.AutoTokenizer.from_pretrained",
+        "chunked_pooling.late_chunk_runner.load_tokenizer",
         lambda *args, **kwargs: SimpleTokenizer(),
     )
 

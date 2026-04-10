@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import torch
 import torch.nn as nn
-from transformers import AutoModel
+from transformers import AutoModel, AutoTokenizer
 from transformers.modeling_outputs import BaseModelOutputWithPooling
 
 try:
@@ -149,6 +149,29 @@ def remove_unsupported_kwargs(original_encode):
     return wrapper
 
 
+def load_tokenizer(tokenizer_name, **tokenizer_kwargs):
+    try:
+        return AutoTokenizer.from_pretrained(
+            tokenizer_name,
+            trust_remote_code=False,
+            **tokenizer_kwargs,
+        )
+    except Exception as standard_exc:
+        try:
+            return AutoTokenizer.from_pretrained(
+                tokenizer_name,
+                trust_remote_code=True,
+                **tokenizer_kwargs,
+            )
+        except Exception as remote_exc:
+            raise RuntimeError(
+                f"Failed to load tokenizer '{tokenizer_name}'. "
+                "Loading without remote code failed first, and the remote-code "
+                "fallback also failed. This often means the environment is not "
+                "compatible with the model's custom tokenizer/config code."
+            ) from remote_exc
+
+
 def load_model(model_name, model_weights=None, **model_kwargs):
     if model_name in MODEL_WRAPPERS:
         model = MODEL_WRAPPERS[model_name](model_name, **model_kwargs)
@@ -157,11 +180,14 @@ def load_model(model_name, model_weights=None, **model_kwargs):
         else:
             has_instructions = False
     else:
-        model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModel.from_pretrained(
+            model_name, trust_remote_code=True, **model_kwargs
+        )
         has_instructions = False
 
     if model_weights and os.path.exists(model_weights):
-        model._model.load_state_dict(torch.load(model_weights, device=model.device))
+        target_model = getattr(model, "_model", model)
+        target_model.load_state_dict(torch.load(model_weights, device=model.device))
 
     # encode functions of various models do not support all sentence transformers kwargs parameter
     if model_name in MODELS_WITHOUT_PROMPT_NAME_ARG:

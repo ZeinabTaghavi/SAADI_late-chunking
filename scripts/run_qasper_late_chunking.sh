@@ -37,6 +37,32 @@ LATE_WINDOW_OVERLAP_TOKENS="${LATE_WINDOW_OVERLAP_TOKENS:-256}"
 RESUME="${RESUME:-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
+if [[ " ${RETRIEVERS} " == *" qwen "* ]]; then
+  "${PYTHON_BIN}" - <<'PY'
+from packaging.version import Version
+import importlib.util
+import os
+
+import transformers
+
+installed = Version(transformers.__version__)
+required = Version("4.51.0")
+if installed < required:
+    raise SystemExit(
+        "Qwen/Qwen3-Embedding-8B requires transformers>=4.51.0, "
+        f"but this environment has transformers=={transformers.__version__}. "
+        "Upgrade the environment or remove 'qwen' from RETRIEVERS."
+    )
+
+visible_devices = [part.strip() for part in os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",") if part.strip()]
+if len(visible_devices) > 1 and importlib.util.find_spec("accelerate") is None:
+    raise SystemExit(
+        "Qwen multi-GPU sharding requires the 'accelerate' package, but it is not "
+        "installed in this environment. Install accelerate or use a single visible GPU."
+    )
+PY
+fi
+
 cmd=(
   "${PYTHON_BIN}"
   "run_late_chunking_experiment.py"

@@ -136,6 +136,10 @@ Supported retriever aliases:
 - `contriever`
 - `bm25`
 
+`qwen` uses `Qwen/Qwen3-Embedding-8B`, requires `transformers>=4.51.0`, and
+automatically shards the model across multiple visible GPUs when more than one
+CUDA device is available. Multi-GPU sharding requires the `accelerate` package.
+
 You can also pass an explicit retriever spec:
 
 ```bash
