@@ -196,6 +196,57 @@ def test_quality_yaml_mapping_matches_reference_defaults():
     assert any("ingest.strategy='hierarchical'" in note for note in notes)
 
 
+def test_novelhopqa_yaml_mapping_matches_reference_defaults():
+    default_experiment = {
+        "output_dir": "outputs/novelqa_ablation",
+        "dataset": {
+            "name": "novelqa",
+            "split": "test",
+            "config_name": "demonstration",
+            "docs_config_name": "all",
+            "qa_config_name": "all",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+            "books_root": "../passing_meta_tag/novelhopqa/book-corpus-root",
+        },
+        "ingest": {
+            "enabled": True,
+            "strategy": "hierarchical",
+            "chunk_size": 500,
+            "chunk_overlap": 0,
+        },
+        "retrieval": {
+            "retriever": "bm25",
+            "retrieve_k": 5,
+            "scope": "per_document",
+        },
+        "sample": {
+            "max_documents": 25,
+        },
+    }
+    retrievers = parse_retriever_specs([], default_experiment)
+    resolved_config, notes = resolve_run_config(
+        dataset_name="novelqa",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        resume=True,
+    )
+
+    assert resolved_config["dataset_loader"]["dataset_name"] == "novelqa"
+    assert resolved_config["dataset_loader"]["split"] == "test"
+    assert resolved_config["dataset_loader"]["config_name"] == "demonstration"
+    assert resolved_config["dataset_loader"]["docs_config_name"] == "all"
+    assert resolved_config["dataset_loader"]["qa_config_name"] == "all"
+    assert resolved_config["dataset_loader"]["qa_n"] == "all"
+    assert resolved_config["dataset_loader"]["qa_selection_method"] == "first"
+    assert resolved_config["dataset_loader"]["max_docs"] == 25
+    assert resolved_config["chunking"]["chunk_size"] == 500
+    assert resolved_config["chunking"]["overlap"] == 0
+    assert resolved_config["retrieval"]["scope"] == "per_document"
+    assert resolved_config["retrieval"]["retrieve_k"] == 5
+    assert any("ingest.strategy='hierarchical'" in note for note in notes)
+
+
 def test_qwen_retriever_alias_is_available():
     retrievers = parse_retriever_specs(["qwen"], {})
     assert retrievers[0]["name"] == "qwen"
@@ -569,6 +620,79 @@ def test_quality_loader_and_sampling_follow_reference_order(monkeypatch):
     )
     assert list(filtered_subset.documents.keys()) == ["article:1001"]
     assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["article:1001"]
+
+
+def test_novelhopqa_loader_and_sampling_follow_reference_order(monkeypatch):
+    fake_documents = {
+        "book:B30": "Book text for B30.",
+        "book:B31": "Book text for B31.",
+    }
+    fake_qa = [
+        {
+            "query_id": "hop_1:q0",
+            "question": "Who discovered the clue?",
+            "document_id": "book:B30",
+            "book_title": "Book 30",
+            "gold_context_window": "Context 30",
+            "retrieval_span_mode": "window",
+            "answers": ["Alice"],
+            "retrieval_spans": ["Context 30"],
+            "source_split": "hop_1",
+            "raw_row": {"question": "Who discovered the clue?"},
+        },
+        {
+            "query_id": "hop_2:q1",
+            "question": "Where was the map hidden?",
+            "document_id": "book:B31",
+            "book_title": "Book 31",
+            "gold_context_window": "Context 31",
+            "retrieval_span_mode": "window",
+            "answers": ["In the attic"],
+            "retrieval_spans": ["Context 31"],
+            "source_split": "hop_2",
+            "raw_row": {"question": "Where was the map hidden?"},
+        },
+    ]
+
+    def fake_load_all(*, mode, split, books_root=None):
+        return fake_documents, fake_qa
+
+    monkeypatch.setattr(
+        "chunked_pooling.experiment_datasets._load_novelhopqa_all",
+        fake_load_all,
+    )
+
+    bundle = load_dataset_bundle(
+        {
+            "type": "task_registry",
+            "dataset_name": "novelqa",
+            "split": "test",
+            "config_name": "demonstration",
+            "docs_config_name": "all",
+            "qa_config_name": "all",
+            "qa_n": "all",
+            "qa_selection_method": "first",
+            "books_root": "../passing_meta_tag/novelhopqa/book-corpus-root",
+        }
+    )
+
+    assert list(bundle.documents.keys()) == ["book:B30", "book:B31"]
+    assert bundle.documents["book:B30"]["text"] == "Book text for B30."
+    assert len(bundle.qa_entries) == 2
+    assert bundle.qa_entries[0]["query_id"] == "hop_1:q0"
+    assert bundle.qa_entries[0]["doc_id"] == "book:B30"
+    assert bundle.qa_entries[0]["reference_answers"] == ["Alice"]
+    assert bundle.qa_entries[0]["retrieval_spans"] == ["Context 30"]
+    assert bundle.qa_entries[1]["doc_id"] == "book:B31"
+    assert bundle.qa_entries[1]["reference_answers"] == ["In the attic"]
+
+    filtered_subset = select_dataset_subset(
+        bundle=bundle,
+        max_docs=1,
+        max_questions=None,
+    )
+    assert list(filtered_subset.documents.keys()) == ["book:B30"]
+    assert [entry["doc_id"] for entry in filtered_subset.qa_entries] == ["book:B30"]
 
 
 def test_resolve_run_config_applies_explicit_overrides():

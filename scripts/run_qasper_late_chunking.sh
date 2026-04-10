@@ -35,6 +35,10 @@ case "${DATASET_NAME}" in
     DEFAULT_CONFIG_PATH="configs/experiments/quality_retrieval_ablation.yaml"
     DEFAULT_CHUNK_SIZE="300"
     ;;
+  novelqa|novelhopqa)
+    DEFAULT_CONFIG_PATH="configs/experiments/novelqa_retrieval_ablation.yaml"
+    DEFAULT_CHUNK_SIZE="500"
+    ;;
   *)
     DEFAULT_CONFIG_PATH="configs/experiments/${DATASET_NAME}_retrieval_ablation.yaml"
     DEFAULT_CHUNK_SIZE="200"
