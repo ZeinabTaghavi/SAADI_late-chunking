@@ -1,0 +1,44 @@
+dataset_name: loogle
+run_name: loogle__fixed-c300-o0__jina
+resume: true
+output_root: late_chunk_runs
+dataset_loader:
+  type: task_registry
+  dataset_name: loogle
+  split: test
+  config_name: shortdep_qa
+  docs_config_name: shortdep_qa
+  qa_config_name: shortdep_qa
+  qa_n: all
+  qa_selection_method: first
+  max_docs: 25
+  max_questions: null
+  selected_doc_ids: null
+  selected_query_ids: null
+  prepend_title: true
+chunking:
+  strategy: fixed
+  chunk_size: 300
+  overlap: 0
+  n_sentences: 1
+  sentence_overlap: 0
+  semantic_model_name: null
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+late_chunking:
+  enabled: true
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+  window_size_tokens: null
+retrievers:
+- name: jina
+  type: dense
+  model_name: jinaai/jina-embeddings-v2-small-en
+  max_transformers_version_exclusive: 5.0.0
+  normalize: true
+  distance_metric: cosine
+  pooling: mean
+retrieval:
+  scope: per_document
+  retrieve_k: 10
+profiling:
+  capture_resource_usage: true
