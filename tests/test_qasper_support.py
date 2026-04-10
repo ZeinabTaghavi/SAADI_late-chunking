@@ -7,6 +7,7 @@ from chunked_pooling.experiment_retrievers import (
     _validate_runtime_requirements,
 )
 from chunked_pooling.wrappers import load_tokenizer
+from chunked_pooling.wrappers import _ensure_remote_code_compat
 
 
 def test_qasper_yaml_mapping_matches_reference_defaults():
@@ -127,6 +128,18 @@ def test_load_tokenizer_prefers_standard_path_before_remote_code(monkeypatch):
 
     assert isinstance(tokenizer, DummyTokenizer)
     assert calls == [("jinaai/jina-embeddings-v2-small-en", False)]
+
+
+def test_jina_remote_code_installs_transformers_onnx_compat(monkeypatch):
+    monkeypatch.delitem(__import__("sys").modules, "transformers.onnx", raising=False)
+
+    _ensure_remote_code_compat("jinaai/jina-embeddings-v2-small-en")
+
+    import transformers.onnx as transformers_onnx
+
+    assert hasattr(transformers_onnx, "OnnxConfig")
+    assert hasattr(transformers_onnx, "OnnxConfigWithPast")
+    assert hasattr(transformers_onnx, "PatchingSpec")
 
 
 def test_qasper_loader_and_sampling_follow_reference_order(monkeypatch):

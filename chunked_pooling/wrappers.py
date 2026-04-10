@@ -1,4 +1,7 @@
 import os
+import sys
+import types
+from dataclasses import dataclass
 from typing import List, Optional, Union
 
 import torch
@@ -138,6 +141,15 @@ MODELS_WITHOUT_PROMPT_NAME_ARG = [
     'jinaai/jina-embeddings-v3',
 ]
 
+JINA_REMOTE_CODE_MODELS = {
+    'jinaai/jina-embeddings-v2-small-en',
+    'jinaai/jina-embeddings-v2-base-en',
+    'jinaai/jina-embeddings-v2-large-en',
+    'jinaai/jina-embeddings-v3',
+    'jinaai/jina-bert-implementation',
+    'jinaai/jina-bert-flash-implementation',
+}
+
 
 def remove_unsupported_kwargs(original_encode):
     def wrapper(self, *args, **kwargs):
@@ -172,7 +184,50 @@ def load_tokenizer(tokenizer_name, **tokenizer_kwargs):
             ) from remote_exc
 
 
+def _install_transformers_onnx_compat_shim() -> None:
+    if "transformers.onnx" in sys.modules:
+        return
+
+    compat_module = types.ModuleType("transformers.onnx")
+
+    class OnnxConfig:
+        default_onnx_opset = 13
+
+        def __init__(self, config=None, task: str = "default", patching_specs=None):
+            self._config = config
+            self.task = task
+            self.patching_specs = patching_specs or []
+
+    class OnnxConfigWithPast(OnnxConfig):
+        pass
+
+    @dataclass
+    class PatchingSpec:
+        o: object = None
+        name: str = ""
+        custom_op: object = None
+        orig_op: object = None
+        op_wrapper: object = None
+
+    compat_module.OnnxConfig = OnnxConfig
+    compat_module.OnnxConfigWithPast = OnnxConfigWithPast
+    compat_module.PatchingSpec = PatchingSpec
+    compat_module.__all__ = ["OnnxConfig", "OnnxConfigWithPast", "PatchingSpec"]
+    sys.modules["transformers.onnx"] = compat_module
+
+
+def _ensure_remote_code_compat(model_name: str) -> None:
+    if model_name not in JINA_REMOTE_CODE_MODELS:
+        return
+
+    try:
+        import transformers.onnx  # type: ignore  # pragma: no cover
+    except ModuleNotFoundError:
+        _install_transformers_onnx_compat_shim()
+
+
 def load_model(model_name, model_weights=None, **model_kwargs):
+    _ensure_remote_code_compat(model_name)
     if model_name in MODEL_WRAPPERS:
         model = MODEL_WRAPPERS[model_name](model_name, **model_kwargs)
         if hasattr(MODEL_WRAPPERS[model_name], 'has_instructions'):
