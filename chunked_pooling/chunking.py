@@ -2,9 +2,6 @@ import bisect
 import logging
 from typing import Dict, List, Optional, Tuple, Union
 
-from llama_index.core.node_parser import SemanticSplitterNodeParser
-from llama_index.core.schema import Document
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from transformers import AutoTokenizer
 
 # Set the logging level to WARNING to suppress INFO and DEBUG messages
@@ -25,6 +22,9 @@ class Chunker:
         self.embedding_model_name = None
 
     def _setup_semantic_chunking(self, embedding_model_name):
+        from llama_index.core.node_parser import SemanticSplitterNodeParser
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
         if embedding_model_name:
             self.embedding_model_name = embedding_model_name
 
@@ -44,6 +44,8 @@ class Chunker:
         tokenizer: 'AutoTokenizer',
         embedding_model_name: Optional[str] = None,
     ) -> List[Tuple[int, int]]:
+        from llama_index.core.schema import Document
+
         if self.embed_model is None:
             self._setup_semantic_chunking(embedding_model_name)
 

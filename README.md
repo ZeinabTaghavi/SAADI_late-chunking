@@ -78,6 +78,40 @@ To reporoduce the evaluation, you can install the dependencies with `pip install
 python3 run_chunked_eval.py --task-name {TASK_NAME}
 ```
 
+## Quick Single-Document Demo
+
+If you want a minimal end-to-end example with one document, one question, and one expected answer, you can use the new demo script:
+
+```bash
+pip install -e ".[dev]"
+python3 test.py
+```
+
+The script:
+
+- splits the sample document into chunks
+- embeds the chunks with traditional chunking
+- embeds the same chunks again with late chunking
+- ranks the chunks against the question
+- prints whether the top late-chunking result contains the expected answer
+
+You can also pass your own text directly from the command line:
+
+```bash
+python3 test.py \
+  --document "Berlin is the capital of Germany. Its population is 3.85 million people." \
+  --question "What is the population of Berlin?" \
+  --expected-answer "3.85 million"
+```
+
+The default setup uses sentence chunking with one sentence per chunk and the model `jinaai/jina-embeddings-v2-small-en`. On the first run, Hugging Face model files may need to be downloaded.
+
+If you only want to verify the small helper test that was added for this demo, you can run:
+
+```bash
+python3 -m pytest --noconftest tests/test_demo.py -q
+```
+
 ## Acknowledgement and References
 
 Thanks to Isabelle Mohr([@violenil](https://github.com/violenil)) for contributing some code and Scott Martens ([@scott-martens](https://github.com/scott-martens)) for reviewing the README.
