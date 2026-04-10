@@ -157,14 +157,11 @@ def load_model(model_name, model_weights=None, **model_kwargs):
         else:
             has_instructions = False
     else:
-        model = AutoModel.from_pretrained(
-            model_name, trust_remote_code=True, **model_kwargs
-        )
+        model = AutoModel.from_pretrained(model_name, trust_remote_code=True)
         has_instructions = False
 
     if model_weights and os.path.exists(model_weights):
-        target_model = getattr(model, "_model", model)
-        target_model.load_state_dict(torch.load(model_weights, device=model.device))
+        model._model.load_state_dict(torch.load(model_weights, device=model.device))
 
     # encode functions of various models do not support all sentence transformers kwargs parameter
     if model_name in MODELS_WITHOUT_PROMPT_NAME_ARG:

@@ -1,11 +1,5 @@
-import pytest
-
 from chunked_pooling.experiment_config import parse_retriever_specs, resolve_run_config
 from chunked_pooling.experiment_datasets import load_dataset_bundle, select_dataset_subset
-from chunked_pooling.experiment_retrievers import (
-    _build_model_load_kwargs,
-    _validate_runtime_requirements,
-)
 
 
 def test_qasper_yaml_mapping_matches_reference_defaults():
@@ -61,48 +55,6 @@ def test_qwen_retriever_alias_is_available():
     assert retrievers[0]["name"] == "qwen"
     assert retrievers[0]["model_name"] == "Qwen/Qwen3-Embedding-8B"
     assert retrievers[0]["pooling"] == "last_token"
-    assert retrievers[0]["min_transformers_version"] == "4.51.0"
-    assert retrievers[0]["shard_across_available_gpus"] is True
-
-
-def test_qwen_runtime_validation_reports_old_transformers(monkeypatch):
-    retrievers = parse_retriever_specs(["qwen"], {})
-    monkeypatch.setattr(
-        "chunked_pooling.experiment_retrievers.transformers.__version__",
-        "4.43.4",
-    )
-
-    with pytest.raises(RuntimeError, match="requires transformers>=4.51.0"):
-        _validate_runtime_requirements(retrievers[0])
-
-
-def test_qwen_builds_auto_device_map_when_multiple_gpus_are_available(monkeypatch):
-    retrievers = parse_retriever_specs(["qwen"], {})
-    monkeypatch.setattr("chunked_pooling.experiment_retrievers.torch.cuda.is_available", lambda: True)
-    monkeypatch.setattr("chunked_pooling.experiment_retrievers.torch.cuda.device_count", lambda: 4)
-    monkeypatch.setattr(
-        "chunked_pooling.experiment_retrievers.importlib.util.find_spec",
-        lambda name: object() if name == "accelerate" else None,
-    )
-
-    kwargs = _build_model_load_kwargs(retrievers[0])
-
-    assert kwargs["device_map"] == "auto"
-    assert kwargs["low_cpu_mem_usage"] is True
-    assert kwargs["torch_dtype"] == "auto"
-
-
-def test_qwen_multi_gpu_requires_accelerate(monkeypatch):
-    retrievers = parse_retriever_specs(["qwen"], {})
-    monkeypatch.setattr("chunked_pooling.experiment_retrievers.torch.cuda.is_available", lambda: True)
-    monkeypatch.setattr("chunked_pooling.experiment_retrievers.torch.cuda.device_count", lambda: 4)
-    monkeypatch.setattr(
-        "chunked_pooling.experiment_retrievers.importlib.util.find_spec",
-        lambda name: None,
-    )
-
-    with pytest.raises(RuntimeError, match="requires the 'accelerate' package"):
-        _build_model_load_kwargs(retrievers[0])
 
 
 def test_qasper_loader_and_sampling_follow_reference_order(monkeypatch):
