@@ -27,7 +27,7 @@ MAX_QUESTIONS="${MAX_QUESTIONS:-}"
 LATE_MAX_TOKENS_PER_FORWARD="${LATE_MAX_TOKENS_PER_FORWARD:-8192}"
 LATE_WINDOW_OVERLAP_TOKENS="${LATE_WINDOW_OVERLAP_TOKENS:-256}"
 CHUNK_TOKENIZER_NAME="${CHUNK_TOKENIZER_NAME:-jinaai/jina-embeddings-v2-small-en}"
-DATASETS="${DATASETS:-qasper loogle narrativeqa quality novelqa}"
+DATASETS="${DATASETS:-novelqa qasper loogle narrativeqa quality}"
 RETRIEVER_GRID="${RETRIEVER_GRID:-jina qwen}"
 CHUNK_SIZES="${CHUNK_SIZES:-200 300 500}"
 CHUNK_OVERLAPS="${CHUNK_OVERLAPS:-0 50 100}"
@@ -71,6 +71,16 @@ for dataset_name in "${dataset_array[@]}"; do
           "${chunk_size}" \
           "${chunk_overlap}"
 
+        # NovelHopQA: NOVELHOPQA_SUBSET_MODE=1 for book/HF alignment (ignore outer env override).
+        case "${dataset_name}" in
+          novelqa|novelhopqa|abhaygupta1266/novelhopqa)
+            NOVELHOPQA_SUBSET_MODE_FOR_RUN=1
+            ;;
+          *)
+            NOVELHOPQA_SUBSET_MODE_FOR_RUN="${NOVELHOPQA_SUBSET_MODE}"
+            ;;
+        esac
+
         cmd=(
           env
           "DATASET_NAME=${dataset_name}"
@@ -94,7 +104,7 @@ for dataset_name in "${dataset_array[@]}"; do
           "VLLM_WORKER_MULTIPROC_METHOD=${VLLM_WORKER_MULTIPROC_METHOD}"
           "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
           "NOVELHOPQA_BOOKS_ROOT=${NOVELHOPQA_BOOKS_ROOT}"
-          "NOVELHOPQA_SUBSET_MODE=${NOVELHOPQA_SUBSET_MODE}"
+          "NOVELHOPQA_SUBSET_MODE=${NOVELHOPQA_SUBSET_MODE_FOR_RUN}"
           "${RUN_SINGLE_SCRIPT}"
         )
 
@@ -123,7 +133,7 @@ for dataset_name in "${dataset_array[@]}"; do
             "VLLM_WORKER_MULTIPROC_METHOD=${VLLM_WORKER_MULTIPROC_METHOD}"
             "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
             "NOVELHOPQA_BOOKS_ROOT=${NOVELHOPQA_BOOKS_ROOT}"
-            "NOVELHOPQA_SUBSET_MODE=${NOVELHOPQA_SUBSET_MODE}"
+            "NOVELHOPQA_SUBSET_MODE=${NOVELHOPQA_SUBSET_MODE_FOR_RUN}"
             "${RUN_SINGLE_SCRIPT}"
           )
         fi
