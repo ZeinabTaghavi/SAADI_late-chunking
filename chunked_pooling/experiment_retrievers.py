@@ -195,7 +195,10 @@ def _to_numpy(value) -> np.ndarray:
     if isinstance(value, np.ndarray):
         return value
     if torch.is_tensor(value):
-        return value.detach().cpu().numpy()
+        tensor = value.detach()
+        if tensor.dtype in (torch.bfloat16, torch.float16):
+            tensor = tensor.float()
+        return tensor.cpu().numpy()
     return np.asarray(value)
 
 
@@ -322,7 +325,7 @@ class DenseRetriever:
             embeddings = _last_token_pool(last_hidden_state, inputs["attention_mask"])
         else:
             embeddings = _mean_pool(last_hidden_state, inputs["attention_mask"])
-        embeddings = embeddings.detach().cpu().numpy()
+        embeddings = _to_numpy(embeddings)
         return normalize_rows(embeddings) if self.normalize else embeddings
 
     def encode_queries(self, texts: Sequence[str]) -> np.ndarray:
