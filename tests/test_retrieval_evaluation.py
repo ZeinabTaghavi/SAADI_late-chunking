@@ -67,7 +67,8 @@ def test_evaluate_run_writes_compact_artifacts(tmp_path):
                 "query_id": "q2",
                 "doc_id": "doc-2",
                 "question": "Who is relevant?",
-                "gold_chunk_ids": ["c8"],
+                "silver_chunk_ids": ["c8", "c7"],
+                "silver_chunk_groups": [["c8", "c7"]],
             },
         ],
     )
@@ -95,13 +96,23 @@ def test_evaluate_run_writes_compact_artifacts(tmp_path):
     assert result["metrics_summary"]["primary_relevance"] == "gold_chunk_ids"
     assert output_dir == tmp_path / "late_chunk_evaluations" / "qasper" / "jina" / "c300_o0"
     assert metrics_summary["method_name"] == "late_chunking"
-    assert metrics_summary["retrieval_metrics"]["recall@5"] == pytest.approx(0.75)
+    assert metrics_summary["retrieval_metrics"]["recall@5"] == pytest.approx(0.5)
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert metrics_summary["retrieval_metrics"]["hit_rate@10"] == 1.0
-    assert leaderboard_row["ndcg@10"] == metrics_summary["retrieval_metrics"]["ndcg@10"]
+    assert metrics_summary["retrieval_metrics_by_view"]["gold"]["recall@5"] == pytest.approx(0.5)
+    assert metrics_summary["retrieval_metrics_by_view"]["silver_loose"]["mrr@5"] == pytest.approx(0.5)
+    assert metrics_summary["retrieval_metrics_by_view"]["loose_union"]["recall@5"] == pytest.approx(0.75)
+    assert metrics_summary["retrieval_metrics_by_view"]["gold_hit"]["hit_rate@5"] == 1.0
+    assert metrics_summary["retrieval_metrics_by_view"]["silver_strict_hit"]["hit_rate@5"] == 1.0
+    assert metrics_summary["retrieval_metrics_by_view"]["strict_union_hit"]["hit_rate@5"] == 1.0
+    assert leaderboard_row["gold_ndcg@10"] == metrics_summary["retrieval_metrics_by_view"]["gold"]["ndcg@10"]
+    assert leaderboard_row["silver_strict_hit@5"] == 1.0
     assert per_query_rows[0]["retrieved_ids_top10"] == ["c2", "c1", "c3"]
     assert per_query_rows[0]["relevant_ids"] == ["c1", "c4"]
     assert per_query_rows[0]["recall@5"] == pytest.approx(0.5)
+    assert per_query_rows[1]["silver_loose_recall@5"] == pytest.approx(1.0)
+    assert per_query_rows[1]["silver_strict_hit@5"] == 1.0
+    assert per_query_rows[1]["strict_union_hit@5"] == 1.0
     assert manifest["input_files_used"]["labels_file"].endswith("labels.json")
     assert manifest["join_summary"]["n_raw_queries"] == 2
 
@@ -149,8 +160,10 @@ def test_evaluate_run_reports_null_metrics_when_only_grouped_silver_exists(tmp_p
 
     assert metrics_summary["primary_relevance"] is None
     assert metrics_summary["retrieval_metrics"]["recall@5"] is None
+    assert metrics_summary["retrieval_metrics_by_view"]["silver_strict_hit"]["hit_rate@5"] == 1.0
+    assert metrics_summary["retrieval_metrics_by_view"]["strict_union_hit"]["hit_rate@5"] == 1.0
     assert per_query_rows[0]["relevant_ids"] == []
-    assert "silver_chunk_groups" in " ".join(manifest["assumptions"])
+    assert per_query_rows[0]["silver_strict_hit@5"] == 1.0
 
 
 def test_evaluate_run_generates_qasper_labels_from_run_artifacts(tmp_path):
@@ -228,6 +241,8 @@ def test_evaluate_run_generates_qasper_labels_from_run_artifacts(tmp_path):
     assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["c2"]
+    assert metrics_summary["retrieval_metrics_by_view"]["gold"]["mrr@5"] == pytest.approx(0.5)
+    assert metrics_summary["retrieval_metrics_by_view"]["strict_union_hit"]["hit_rate@5"] == 1.0
     assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
 
 
@@ -306,6 +321,7 @@ def test_evaluate_run_generates_loogle_labels_from_run_artifacts(tmp_path):
     assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["l2"]
+    assert metrics_summary["retrieval_metrics_by_view"]["gold"]["mrr@5"] == pytest.approx(0.5)
     assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
 
 
@@ -384,6 +400,7 @@ def test_evaluate_run_generates_narrativeqa_labels_from_answer_text(tmp_path):
     assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["n2"]
+    assert metrics_summary["retrieval_metrics_by_view"]["gold"]["mrr@5"] == pytest.approx(0.5)
     assert "answer text" in " ".join(manifest["assumptions"]).lower()
 
 
@@ -463,6 +480,7 @@ def test_evaluate_run_generates_quality_labels_from_answer_choice_text(tmp_path)
     assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["q2"]
+    assert metrics_summary["retrieval_metrics_by_view"]["gold"]["mrr@5"] == pytest.approx(0.5)
     assert "answer choice text" in " ".join(manifest["assumptions"]).lower()
 
 
@@ -542,4 +560,7 @@ def test_evaluate_run_generates_novelhopqa_window_labels_from_run_artifacts(tmp_
     assert metrics_summary["primary_relevance"] == "silver_chunk_ids"
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["h1", "h2"]
+    assert metrics_summary["retrieval_metrics_by_view"]["silver_loose"]["mrr@5"] == pytest.approx(0.5)
+    assert metrics_summary["retrieval_metrics_by_view"]["silver_strict_hit"]["hit_rate@5"] == 1.0
+    assert metrics_summary["retrieval_metrics_by_view"]["strict_union_hit"]["hit_rate@5"] == 1.0
     assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"

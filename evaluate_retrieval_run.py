@@ -49,7 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--primary-relevance",
         choices=LABEL_SOURCE_CHOICES,
         default="auto",
-        help="Primary relevance field to use. Defaults to auto.",
+        help=(
+            "Primary relevance field for the legacy flat metrics. "
+            "The evaluator now also writes multi-view gold, silver_loose, loose_union, "
+            "gold_hit, silver_strict_hit, and strict_union_hit outputs."
+        ),
     )
     parser.add_argument(
         "--raw-results-file",

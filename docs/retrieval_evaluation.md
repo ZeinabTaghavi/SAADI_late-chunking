@@ -14,6 +14,17 @@ Both are read from an existing `--run-dir`. The evaluator can either join with a
 - `leaderboard_row.json`
 - `evaluation_manifest.json`
 
+The summary now reports all relevance views in parallel:
+
+- `gold`: binary Recall, MRR, and NDCG over `gold_chunk_ids`
+- `silver_loose`: binary Recall, MRR, and NDCG over flattened `silver_chunk_ids`
+- `loose_union`: binary Recall, MRR, and NDCG over the flattened union of gold and silver-loose ids
+- `gold_hit`: HitRate@k for any gold chunk in top-k
+- `silver_strict_hit`: HitRate@k for retrieving an entire `silver_chunk_group` in top-k
+- `strict_union_hit`: HitRate@k for `gold_hit OR silver_strict_hit`
+
+The older flat `retrieval_metrics` block is still written for compatibility and follows `--primary-relevance`.
+
 Example:
 
 - run input: `late_chunk_runs/qasper/jina/c300_o0`
@@ -178,9 +189,9 @@ When `--labels-file` is provided, the evaluator accepts JSON or JSONL label rows
 - fallback `silver_chunk_ids`
 - fallback `relevant_ids`
 
-If a requested primary relevance field is unavailable for a query, that query gets `null` metrics and the reason is recorded in `evaluation_manifest.json`.
+If a requested primary relevance field is unavailable for a query, that query gets `null` metrics in the legacy flat block and the reason is recorded in `evaluation_manifest.json`.
 
-`silver_chunk_groups` are preserved in label loading for provenance, but they are not enough by themselves to compute the requested binary ranking metrics. If a labels file only contains grouped silver support without flat relevant ids, the manifest records that limitation and the summary metrics stay `null`.
+`silver_chunk_groups` are preserved in label loading for strict hit evaluation. They are not flattened into binary ranking relevance automatically unless `silver_chunk_ids` or fallback `relevant_ids` are present.
 
 ## Internal QASPER, LooGLE, NarrativeQA, QuALITY, And NovelHopQA Labels
 
