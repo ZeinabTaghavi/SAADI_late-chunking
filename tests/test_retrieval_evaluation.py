@@ -229,3 +229,81 @@ def test_evaluate_run_generates_qasper_labels_from_run_artifacts(tmp_path):
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["c2"]
     assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
+
+
+def test_evaluate_run_generates_loogle_labels_from_run_artifacts(tmp_path):
+    run_dir = tmp_path / "late_chunk_runs" / "loogle" / "qwen" / "c300_o0"
+    _write_json(
+        run_dir / "run_manifest.json",
+        {
+            "dataset_name": "loogle",
+            "run_name": "qwen/c300_o0",
+            "artifact_paths": {
+                "retrieval_payloads_qwen": "retrieval/retrieval_payloads__qwen__late_chunking__per_document.jsonl",
+            },
+        },
+    )
+    _write_json(
+        run_dir / "selection" / "qa_entries.json",
+        [
+            {
+                "query_id": "loogle_0",
+                "doc_id": "doc-7",
+                "document_id": "doc-7",
+                "question": "Which passage supports the answer?",
+                "answers": ["Final answer"],
+                "retrieval_spans": ["LooGLE evidence span"],
+            }
+        ],
+    )
+    _write_jsonl(
+        run_dir / "chunking" / "doc-7" / "chunks.jsonl",
+        [
+            {
+                "doc_id": "doc-7",
+                "chunk_id": "l1",
+                "chunk_index": 0,
+                "raw_text": "Opening context.",
+            },
+            {
+                "doc_id": "doc-7",
+                "chunk_id": "l2",
+                "chunk_index": 1,
+                "raw_text": "LooGLE evidence span is located in this chunk.",
+            },
+        ],
+    )
+    _write_jsonl(
+        run_dir / "retrieval" / "retrieval_payloads__qwen__late_chunking__per_document.jsonl",
+        [
+            {
+                "query_id": "loogle_0",
+                "doc_id": "doc-7",
+                "question": "Which passage supports the answer?",
+                "retrieved_chunk_ids": ["l1", "l2"],
+                "scores": [0.75, 0.7],
+            }
+        ],
+    )
+
+    result = evaluate_run(
+        run_dir=run_dir,
+        method_name="late_chunking",
+        dataset_name="loogle",
+        split="test",
+        ks=[5, 10],
+    )
+
+    output_dir = Path(result["output_dir"])
+    metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
+    manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
+    per_query_rows = [
+        json.loads(line)
+        for line in (output_dir / "metrics_per_query.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+
+    assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
+    assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
+    assert per_query_rows[0]["relevant_ids"] == ["l2"]
+    assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
