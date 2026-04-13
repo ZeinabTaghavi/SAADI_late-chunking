@@ -271,6 +271,13 @@ def _kmp_contains(text_tokens: List[str], pattern_tokens: List[str]) -> bool:
 def classify_overlap(chunk_text: str, span_text: str) -> Tuple[str, int, str]:
     chunk_tokens = _tokenize_match_text(chunk_text)
     span_tokens = _tokenize_match_text(span_text)
+    return _classify_overlap_tokens(chunk_tokens, span_tokens)
+
+
+def _classify_overlap_tokens(
+    chunk_tokens: List[str],
+    span_tokens: List[str],
+) -> Tuple[str, int, str]:
     if not span_tokens:
         return ("full", 0, "")
     if _kmp_contains(chunk_tokens, span_tokens):
@@ -382,11 +389,24 @@ def _boundary_overlap_size(chunk_tokens: List[str], span_tokens: List[str]) -> i
 def _window_overlaps_chunk(chunk_text: str, span_text: str) -> bool:
     chunk_tokens = _tokenize_match_text(chunk_text)
     span_tokens = _tokenize_match_text(span_text)
+    return _window_overlaps_tokens(chunk_tokens, span_tokens)
+
+
+def _window_overlaps_tokens(chunk_tokens: List[str], span_tokens: List[str]) -> bool:
     if not chunk_tokens or not span_tokens:
         return False
     if _kmp_contains(chunk_tokens, span_tokens) or _kmp_contains(span_tokens, chunk_tokens):
         return True
     return _boundary_overlap_size(chunk_tokens, span_tokens) > 0
+
+
+def _chunk_match_tokens(chunk: Dict[str, Any]) -> List[str]:
+    cached = chunk.get("_match_tokens")
+    if isinstance(cached, list):
+        return cached
+    tokens = _tokenize_match_text(str(chunk.get("raw_text", "")))
+    chunk["_match_tokens"] = tokens
+    return tokens
 
 
 def _match_span_chunks(
@@ -395,11 +415,12 @@ def _match_span_chunks(
     *,
     retrieval_span_mode: str,
 ) -> Tuple[List[str], List[str]]:
+    span_tokens = _tokenize_match_text(span)
     if retrieval_span_mode == "window":
         matched_ids = _ordered_unique(
             str(chunk["chunk_id"])
             for chunk in chunks
-            if _window_overlaps_chunk(str(chunk.get("raw_text", "")), span)
+            if _window_overlaps_tokens(_chunk_match_tokens(chunk), span_tokens)
         )
         if len(matched_ids) == 1:
             return matched_ids, []
@@ -408,7 +429,7 @@ def _match_span_chunks(
     full_ids: List[str] = []
     partial_ids: List[str] = []
     for chunk in chunks:
-        kind, _, _ = classify_overlap(str(chunk.get("raw_text", "")), span)
+        kind, _, _ = _classify_overlap_tokens(_chunk_match_tokens(chunk), span_tokens)
         if kind == "full":
             full_ids.append(str(chunk["chunk_id"]))
         elif kind == "partial":
