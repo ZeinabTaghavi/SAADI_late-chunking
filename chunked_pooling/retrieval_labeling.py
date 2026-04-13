@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -480,12 +481,23 @@ def _build_support_targets(
     return _ordered_unique(gold_ids), _ordered_unique(silver_ids), silver_groups
 
 
-def _chunks_by_doc_from_run(run_dir: Path) -> Dict[str, List[Dict[str, Any]]]:
+def _chunks_by_doc_from_run(
+    run_dir: Path,
+    *,
+    doc_ids: Optional[Iterable[str]] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
     chunk_root = run_dir / "chunking"
     if not chunk_root.exists():
         raise FileNotFoundError(f"Chunk directory not found under run: {chunk_root}")
+    wanted_doc_ids = {
+        str(doc_id).strip()
+        for doc_id in (doc_ids or [])
+        if str(doc_id).strip()
+    }
     out: Dict[str, List[Dict[str, Any]]] = {}
     for doc_dir in sorted(child for child in chunk_root.iterdir() if child.is_dir()):
+        if wanted_doc_ids and doc_dir.name not in wanted_doc_ids:
+            continue
         chunk_file = doc_dir / "chunks.jsonl"
         if not chunk_file.exists():
             continue
@@ -515,6 +527,10 @@ def infer_dataset_name_for_run(run_dir: Path) -> Optional[str]:
     return None
 
 
+def _progress(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
 def generate_label_rows_for_run(
     run_dir: Path,
     *,
@@ -532,11 +548,33 @@ def generate_label_rows_for_run(
             "Automatic in-process label generation is currently implemented only for qasper, loogle, narrativeqa, quality, and novelhopqa."
         )
 
-    chunks_by_doc = _chunks_by_doc_from_run(run_dir)
     qa_entries = _qa_entries_from_run(run_dir)
+    doc_ids = _ordered_unique(
+        str(
+            qa_entry.get("document_id")
+            or qa_entry.get("doc_id")
+            or ""
+        ).strip()
+        for qa_entry in qa_entries
+    )
+    chunks_by_doc = _chunks_by_doc_from_run(run_dir, doc_ids=doc_ids)
 
     labels_by_query: Dict[str, LabelRow] = {}
-    for qa_entry in qa_entries:
+    total_queries = len(qa_entries)
+    progress_every = 0
+    if total_queries >= 100:
+        progress_every = max(25, total_queries // 10)
+        _progress(
+            "[labeling] %s: generating labels for %d queries across %d documents in %s"
+            % (
+                resolved_dataset_name,
+                total_queries,
+                len(doc_ids),
+                run_dir,
+            )
+        )
+
+    for query_index, qa_entry in enumerate(qa_entries, start=1):
         query_id = str(qa_entry.get("query_id") or "").strip()
         if not query_id:
             continue
@@ -563,5 +601,15 @@ def generate_label_rows_for_run(
             relevant_ids=relevant_ids,
             graded_relevance=graded_relevance,
         )
+        if progress_every and (query_index % progress_every == 0 or query_index == total_queries):
+            _progress(
+                "[labeling] %s: processed %d/%d queries for %s"
+                % (
+                    resolved_dataset_name,
+                    query_index,
+                    total_queries,
+                    run_dir.name,
+                )
+            )
 
     return labels_by_query
