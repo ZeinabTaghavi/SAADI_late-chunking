@@ -18,7 +18,14 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument("--run-dir", required=True, help="Path to the existing retrieval run directory.")
-    parser.add_argument("--labels-file", required=True, help="Path to the labels/relevance JSON or JSONL file.")
+    parser.add_argument(
+        "--labels-file",
+        default=None,
+        help=(
+            "Optional path to an external labels/relevance JSON or JSONL file. "
+            "If omitted, supported datasets such as qasper generate labels inside the evaluation pipeline."
+        ),
+    )
     parser.add_argument(
         "--output-dir",
         default=None,
@@ -58,7 +65,7 @@ def main() -> int:
 
     result = evaluate_run(
         run_dir=Path(args.run_dir),
-        labels_file=Path(args.labels_file),
+        labels_file=Path(args.labels_file) if args.labels_file else None,
         output_dir=Path(args.output_dir) if args.output_dir else None,
         method_name=args.method_name,
         dataset_name=args.dataset_name,

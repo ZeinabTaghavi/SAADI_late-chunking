@@ -7,7 +7,7 @@ The compact evaluator prefers:
 - `retrieval/retrieval_payloads__<retriever>__late_chunking__per_document.jsonl`
 - fallback: `retrieval/retrieval_results_raw__<retriever>__late_chunking__per_document.json`
 
-Both are read from an existing `--run-dir`. The evaluator joins those rows with an external labels file and, by default, mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
+Both are read from an existing `--run-dir`. The evaluator can either join with an external labels file or generate labels inside the pipeline for supported datasets such as QASPER. By default, it mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
 
 - `metrics_summary.json`
 - `metrics_per_query.jsonl`
@@ -24,7 +24,6 @@ Example:
 ```bash
 python3 evaluate_retrieval_run.py \
   --run-dir late_chunk_runs/qasper/jina/c300_o0 \
-  --labels-file path/to/labels.json \
   --method-name late_chunking \
   --dataset-name qasper \
   --split test \
@@ -36,7 +35,6 @@ Or with the shell wrapper:
 ```bash
 bash scripts/run_retrieval_evaluation.sh \
   --run-dir late_chunk_runs/qasper/jina/c300_o0 \
-  --labels-file path/to/labels.json \
   --method-name late_chunking \
   --dataset-name qasper \
   --split test \
@@ -45,9 +43,11 @@ bash scripts/run_retrieval_evaluation.sh \
 
 If you want a non-default location, you can still pass `--output-dir`.
 
+If you already have a separate labels file and want to use it instead of in-process generation, pass `--labels-file path/to/labels.json`.
+
 ## Labels
 
-The evaluator accepts JSON or JSONL label rows keyed by `query_id`. It prefers:
+When `--labels-file` is provided, the evaluator accepts JSON or JSONL label rows keyed by `query_id`. It prefers:
 
 - `gold_chunk_ids`
 - fallback `silver_chunk_ids`
@@ -56,3 +56,12 @@ The evaluator accepts JSON or JSONL label rows keyed by `query_id`. It prefers:
 If a requested primary relevance field is unavailable for a query, that query gets `null` metrics and the reason is recorded in `evaluation_manifest.json`.
 
 `silver_chunk_groups` are preserved in label loading for provenance, but they are not enough by themselves to compute the requested binary ranking metrics. If a labels file only contains grouped silver support without flat relevant ids, the manifest records that limitation and the summary metrics stay `null`.
+
+## Internal QASPER Labels
+
+For QASPER runs, labels are generated from:
+
+- `selection/qa_entries.json` for the selected questions and evidence spans
+- `chunking/<doc_id>/chunks.jsonl` for the exact chunk boundaries of that experiment
+
+This means `gold_chunk_ids`, `silver_chunk_ids`, and `silver_chunk_groups` are recomputed per run, so changes in chunk size or overlap automatically change the labels as well.

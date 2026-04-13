@@ -151,3 +151,81 @@ def test_evaluate_run_reports_null_metrics_when_only_grouped_silver_exists(tmp_p
     assert metrics_summary["retrieval_metrics"]["recall@5"] is None
     assert per_query_rows[0]["relevant_ids"] == []
     assert "silver_chunk_groups" in " ".join(manifest["assumptions"])
+
+
+def test_evaluate_run_generates_qasper_labels_from_run_artifacts(tmp_path):
+    run_dir = tmp_path / "late_chunk_runs" / "qasper" / "jina" / "c200_o0"
+    _write_json(
+        run_dir / "run_manifest.json",
+        {
+            "dataset_name": "qasper",
+            "run_name": "jina/c200_o0",
+            "artifact_paths": {
+                "retrieval_payloads_jina": "retrieval/retrieval_payloads__jina__late_chunking__per_document.jsonl",
+            },
+        },
+    )
+    _write_json(
+        run_dir / "selection" / "qa_entries.json",
+        [
+            {
+                "query_id": "qasper_0",
+                "doc_id": "doc-1",
+                "document_id": "doc-1",
+                "question": "What supports the answer?",
+                "answers": ["Answer text"],
+                "retrieval_spans": ["Evidence span text"],
+            }
+        ],
+    )
+    _write_jsonl(
+        run_dir / "chunking" / "doc-1" / "chunks.jsonl",
+        [
+            {
+                "doc_id": "doc-1",
+                "chunk_id": "c1",
+                "chunk_index": 0,
+                "raw_text": "Intro chunk.",
+            },
+            {
+                "doc_id": "doc-1",
+                "chunk_id": "c2",
+                "chunk_index": 1,
+                "raw_text": "Evidence span text appears here.",
+            },
+        ],
+    )
+    _write_jsonl(
+        run_dir / "retrieval" / "retrieval_payloads__jina__late_chunking__per_document.jsonl",
+        [
+            {
+                "query_id": "qasper_0",
+                "doc_id": "doc-1",
+                "question": "What supports the answer?",
+                "retrieved_chunk_ids": ["c1", "c2"],
+                "scores": [0.8, 0.7],
+            }
+        ],
+    )
+
+    result = evaluate_run(
+        run_dir=run_dir,
+        method_name="late_chunking",
+        dataset_name="qasper",
+        split="test",
+        ks=[5, 10],
+    )
+
+    output_dir = Path(result["output_dir"])
+    metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
+    manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
+    per_query_rows = [
+        json.loads(line)
+        for line in (output_dir / "metrics_per_query.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+
+    assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
+    assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
+    assert per_query_rows[0]["relevant_ids"] == ["c2"]
+    assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"

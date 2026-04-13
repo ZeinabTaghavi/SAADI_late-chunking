@@ -10,6 +10,13 @@ from importlib.metadata import PackageNotFoundError, version as pkg_version
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from chunked_pooling.retrieval_labeling import (
+    LabelRow,
+    generate_label_rows_for_run,
+    infer_dataset_name_for_run,
+    load_label_rows,
+)
+
 
 DEFAULT_K_VALUES = (5, 10)
 DEFAULT_EVALUATION_ROOT = "late_chunk_evaluations"
@@ -29,18 +36,6 @@ class RawRunRow:
     retrieved_chunk_ids: List[str]
     scores: List[Optional[float]]
     source_path: str
-
-
-@dataclass
-class LabelRow:
-    query_id: str
-    doc_id: Optional[str]
-    question: Optional[str]
-    gold_chunk_ids: List[str]
-    silver_chunk_ids: List[str]
-    silver_chunk_groups: List[List[str]]
-    relevant_ids: List[str]
-    graded_relevance: "OrderedDict[str, float]"
 
 
 def _read_json(path: Path) -> Any:
@@ -84,25 +79,6 @@ def _ordered_unique(values: Iterable[str]) -> List[str]:
     return ordered
 
 
-def _normalize_chunk_groups(raw: Any) -> List[List[str]]:
-    groups: List[List[str]] = []
-    if not isinstance(raw, list):
-        return groups
-    seen = set()
-    for item in raw:
-        if not isinstance(item, list):
-            continue
-        group = _ordered_unique(str(value) for value in item)
-        if not group:
-            continue
-        key = tuple(group)
-        if key in seen:
-            continue
-        seen.add(key)
-        groups.append(group)
-    return groups
-
-
 def _as_id_list(raw: Any) -> List[str]:
     if raw is None:
         return []
@@ -137,144 +113,6 @@ def _as_ranked_id_list(raw: Any) -> List[str]:
         return ranked_ids
     item = str(raw).strip()
     return [item] if item else []
-
-
-def _merge_graded_relevance(*mappings: "OrderedDict[str, float]") -> "OrderedDict[str, float]":
-    merged: "OrderedDict[str, float]" = OrderedDict()
-    for mapping in mappings:
-        for key, value in mapping.items():
-            if key not in merged or value > merged[key]:
-                merged[key] = float(value)
-    return merged
-
-
-def _coerce_score_mapping(raw: Any) -> "OrderedDict[str, float]":
-    scores: "OrderedDict[str, float]" = OrderedDict()
-    if isinstance(raw, dict):
-        for key, value in raw.items():
-            try:
-                score = float(value)
-            except (TypeError, ValueError):
-                continue
-            if score > 0:
-                scores[str(key)] = score
-    return scores
-
-
-def _normalize_label_rows(payload: Any) -> List[Dict[str, Any]]:
-    if isinstance(payload, list):
-        return [row for row in payload if isinstance(row, dict)]
-
-    if isinstance(payload, dict):
-        for key in ("rows", "queries", "examples", "data", "labels"):
-            rows = payload.get(key)
-            if isinstance(rows, list):
-                return [row for row in rows if isinstance(row, dict)]
-
-        dict_like_rows: List[Dict[str, Any]] = []
-        for key, value in payload.items():
-            if not isinstance(value, dict):
-                continue
-            if "query_id" in value or "qid" in value or "id" in value:
-                dict_like_rows.append(value)
-            else:
-                dict_like_rows.append(dict(value, query_id=str(key)))
-        if dict_like_rows:
-            return dict_like_rows
-
-        if "query_id" in payload or "qid" in payload or "id" in payload:
-            return [payload]
-
-    raise ValueError(
-        "Unsupported labels payload. Expected JSON/JSONL rows keyed by query id or a list of row objects."
-    )
-
-
-def load_label_rows(labels_file: Path) -> Dict[str, LabelRow]:
-    if labels_file.suffix == ".jsonl":
-        rows = _read_jsonl(labels_file)
-    else:
-        rows = _normalize_label_rows(_read_json(labels_file))
-
-    labels_by_query: Dict[str, LabelRow] = {}
-    for row in rows:
-        query_id = str(
-            row.get("query_id")
-            or row.get("qid")
-            or row.get("id")
-            or ""
-        ).strip()
-        if not query_id:
-            continue
-
-        gold_chunk_ids = _as_id_list(
-            row.get("gold_chunk_ids", row.get("gold"))
-        )
-        silver_chunk_ids = _as_id_list(
-            row.get("silver_chunk_ids", row.get("silver"))
-        )
-        silver_chunk_groups = _normalize_chunk_groups(row.get("silver_chunk_groups"))
-        relevant_ids = _as_id_list(
-            row.get("relevant_ids")
-            or row.get("relevant_chunk_ids")
-            or row.get("chunk_ids")
-            or row.get("relevant_doc_ids")
-        )
-        graded_relevance = _coerce_score_mapping(
-            row.get("relevant_id_scores")
-            or row.get("graded_relevance")
-            or row.get("qrels")
-        )
-
-        if not relevant_ids and graded_relevance:
-            relevant_ids = list(graded_relevance.keys())
-
-        normalized = LabelRow(
-            query_id=query_id,
-            doc_id=(
-                str(row["doc_id"]).strip()
-                if row.get("doc_id") not in (None, "")
-                else None
-            ),
-            question=(
-                str(row["question"]).strip()
-                if row.get("question") not in (None, "")
-                else None
-            ),
-            gold_chunk_ids=gold_chunk_ids,
-            silver_chunk_ids=silver_chunk_ids,
-            silver_chunk_groups=silver_chunk_groups,
-            relevant_ids=relevant_ids,
-            graded_relevance=graded_relevance,
-        )
-
-        existing = labels_by_query.get(query_id)
-        if existing is None:
-            labels_by_query[query_id] = normalized
-            continue
-
-        merged_groups = existing.silver_chunk_groups + [
-            group
-            for group in normalized.silver_chunk_groups
-            if group not in existing.silver_chunk_groups
-        ]
-        labels_by_query[query_id] = LabelRow(
-            query_id=query_id,
-            doc_id=existing.doc_id or normalized.doc_id,
-            question=existing.question or normalized.question,
-            gold_chunk_ids=_ordered_unique(existing.gold_chunk_ids + normalized.gold_chunk_ids),
-            silver_chunk_ids=_ordered_unique(
-                existing.silver_chunk_ids + normalized.silver_chunk_ids
-            ),
-            silver_chunk_groups=merged_groups,
-            relevant_ids=_ordered_unique(existing.relevant_ids + normalized.relevant_ids),
-            graded_relevance=_merge_graded_relevance(
-                existing.graded_relevance,
-                normalized.graded_relevance,
-            ),
-        )
-
-    return labels_by_query
 
 
 def _resolve_candidate_paths(run_dir: Path, run_manifest: Optional[Dict[str, Any]]) -> List[Path]:
@@ -619,7 +457,7 @@ def default_output_dir_for_run(
 def evaluate_run(
     *,
     run_dir: Path,
-    labels_file: Path,
+    labels_file: Optional[Path] = None,
     output_dir: Optional[Path] = None,
     method_name: Optional[str] = None,
     dataset_name: Optional[str] = None,
@@ -646,7 +484,22 @@ def evaluate_run(
         explicit_path=raw_results_file,
     )
     raw_rows = load_raw_run_rows(selected_raw_file)
-    labels_by_query = load_label_rows(labels_file)
+    resolved_dataset_name = (
+        dataset_name
+        or (
+            str(run_manifest.get("dataset_name")).strip()
+            if isinstance(run_manifest, dict) and run_manifest.get("dataset_name")
+            else ""
+        )
+        or (infer_dataset_name_for_run(run_dir) or "")
+        or "unknown"
+    )
+    if labels_file is not None:
+        labels_by_query = load_label_rows(labels_file)
+        labels_source = "external_labels_file"
+    else:
+        labels_by_query = generate_label_rows_for_run(run_dir, dataset_name=resolved_dataset_name)
+        labels_source = "generated_from_run"
     chosen_relevance, relevance_notes, relevance_counts = choose_primary_relevance(
         labels_by_query,
         primary_relevance=primary_relevance,
@@ -661,15 +514,6 @@ def evaluate_run(
         )
         or run_dir.name
     )
-    resolved_dataset_name = (
-        dataset_name
-        or (
-            str(run_manifest.get("dataset_name")).strip()
-            if isinstance(run_manifest, dict) and run_manifest.get("dataset_name")
-            else ""
-        )
-        or "unknown"
-    )
     resolved_method_name = method_name or "late_chunking"
     resolved_split = split or "unknown"
 
@@ -679,6 +523,10 @@ def evaluate_run(
         "Scores are retained only for provenance; Recall, MRR, NDCG, and HitRate are computed from ranked order.",
         "Binary relevance is used unless graded relevance scores are explicitly present in the labels file.",
     ]
+    if labels_source == "generated_from_run":
+        assumptions.append(
+            "Labels were generated inside this repo from the run's selected QA entries and exact chunk boundaries for this experiment."
+        )
     assumptions.extend(selection_notes)
     assumptions.extend(relevance_notes)
 
@@ -788,7 +636,7 @@ def evaluate_run(
                     [
                         ("run_dir", str(run_dir.resolve())),
                         ("raw_results_file", str(selected_raw_file.resolve())),
-                        ("labels_file", str(labels_file.resolve())),
+                        ("labels_file", str(labels_file.resolve()) if labels_file is not None else None),
                         (
                             "run_manifest",
                             str((run_dir / "run_manifest.json").resolve())
@@ -813,6 +661,7 @@ def evaluate_run(
                 "relevance_source_used",
                 OrderedDict(
                     [
+                        ("labels_source", labels_source),
                         ("primary_relevance", chosen_relevance),
                         ("available_label_counts", relevance_counts),
                     ]
