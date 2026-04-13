@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "qasper",
+  "split": "test",
+  "run_name": "qwen/c500_o0",
+  "n_queries": 81,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.7675438596491229,
+    "recall@10": 0.9967105263157895,
+    "mrr@5": 0.5429824561403509,
+    "mrr@10": 0.5569235588972431,
+    "ndcg@5": 0.5542801973094921,
+    "ndcg@10": 0.6495906946129194,
+    "hit_rate@5": 0.9078947368421053,
+    "hit_rate@10": 1.0
+  }
+}

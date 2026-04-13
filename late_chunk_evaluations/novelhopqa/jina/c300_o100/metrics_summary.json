@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "novelhopqa",
+  "split": "test",
+  "run_name": "jina/c300_o100",
+  "n_queries": 1841,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.0963855421686747,
+    "recall@10": 0.14698795180722893,
+    "mrr@5": 0.053614457831325305,
+    "mrr@10": 0.06041786192388602,
+    "ndcg@5": 0.06418092736171406,
+    "ndcg@10": 0.08060927095265208,
+    "hit_rate@5": 0.0963855421686747,
+    "hit_rate@10": 0.14698795180722893
+  }
+}

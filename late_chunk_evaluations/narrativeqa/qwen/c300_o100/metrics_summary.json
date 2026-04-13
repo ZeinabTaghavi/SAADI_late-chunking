@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "narrativeqa",
+  "split": "test",
+  "run_name": "qwen/c300_o100",
+  "n_queries": 765,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "silver_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.03201467036733657,
+    "recall@10": 0.06553071357765222,
+    "mrr@5": 0.04097222222222222,
+    "mrr@10": 0.05290570175438596,
+    "ndcg@5": 0.030031861259888614,
+    "ndcg@10": 0.04151172218959053,
+    "hit_rate@5": 0.09429824561403509,
+    "hit_rate@10": 0.18201754385964913
+  }
+}

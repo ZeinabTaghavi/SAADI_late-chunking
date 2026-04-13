@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "loogle",
+  "split": "test",
+  "run_name": "qwen/c500_o100",
+  "n_queries": 557,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.39454135979815386,
+    "recall@10": 0.5706333704169076,
+    "mrr@5": 0.25730550284629977,
+    "mrr@10": 0.280413993554411,
+    "ndcg@5": 0.28448478702805724,
+    "ndcg@10": 0.344221040648522,
+    "hit_rate@5": 0.4269449715370019,
+    "hit_rate@10": 0.5977229601518027
+  }
+}

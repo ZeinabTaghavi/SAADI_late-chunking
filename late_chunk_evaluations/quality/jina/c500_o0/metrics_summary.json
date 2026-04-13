@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "quality",
+  "split": "validation",
+  "run_name": "jina/c500_o0",
+  "n_queries": 443,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.4745592948717949,
+    "recall@10": 0.7178685897435897,
+    "mrr@5": 0.5802083333333333,
+    "mrr@10": 0.5891369047619047,
+    "ndcg@5": 0.49786035230851267,
+    "ndcg@10": 0.5781397272155228,
+    "hit_rate@5": 0.8125,
+    "hit_rate@10": 0.875
+  }
+}

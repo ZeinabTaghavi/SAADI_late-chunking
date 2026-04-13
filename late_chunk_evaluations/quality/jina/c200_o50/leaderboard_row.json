@@ -1,0 +1,14 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "quality",
+  "split": "validation",
+  "run_name": "jina/c200_o50",
+  "recall@5": 0.12332135598141696,
+  "recall@10": 0.3675141550522648,
+  "mrr@5": 0.246875,
+  "mrr@10": 0.3031001984126984,
+  "ndcg@5": 0.20107954403735834,
+  "ndcg@10": 0.27579847300928795,
+  "hit_rate@5": 0.375,
+  "hit_rate@10": 0.8125
+}

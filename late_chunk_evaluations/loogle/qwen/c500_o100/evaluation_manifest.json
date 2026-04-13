@@ -1,0 +1,87 @@
+{
+  "input_files_used": {
+    "run_dir": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/loogle/qwen/c500_o100",
+    "raw_results_file": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/loogle/qwen/c500_o100/retrieval/retrieval_payloads__qwen__late_chunking__per_document.jsonl",
+    "labels_file": null,
+    "run_manifest": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/loogle/qwen/c500_o100/run_manifest.json"
+  },
+  "output_files_written": {
+    "metrics_summary_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/loogle/qwen/c500_o100/metrics_summary.json",
+    "metrics_per_query_jsonl": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/loogle/qwen/c500_o100/metrics_per_query.jsonl",
+    "leaderboard_row_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/loogle/qwen/c500_o100/leaderboard_row.json",
+    "evaluation_manifest_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/loogle/qwen/c500_o100/evaluation_manifest.json"
+  },
+  "relevance_source_used": {
+    "labels_source": "generated_from_run",
+    "primary_relevance": "gold_chunk_ids",
+    "available_label_counts": {
+      "gold_chunk_ids": 527,
+      "silver_chunk_ids": 11,
+      "relevant_ids": 538,
+      "silver_chunk_groups": 11
+    }
+  },
+  "primary_relevance_choice": "gold_chunk_ids",
+  "assumptions": [
+    "Metrics are computed over deduplicated retrieved ids while preserving the first occurrence from the raw ranking.",
+    "Scores are retained only for provenance; Recall, MRR, NDCG, and HitRate are computed from ranked order.",
+    "Binary relevance is used unless graded relevance scores are explicitly present in the labels file.",
+    "Labels were generated inside this repo from the run's selected QA entries and exact chunk boundaries for this experiment.",
+    "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata.",
+    "Primary relevance uses gold_chunk_ids. Queries without gold labels are left null rather than back-filled from silver labels."
+  ],
+  "missing_metrics_and_reasons": {
+    "loogle_0": "gold_chunk_ids missing for this query.",
+    "loogle_1": "gold_chunk_ids missing for this query.",
+    "loogle_3": "gold_chunk_ids missing for this query.",
+    "loogle_30": "gold_chunk_ids missing for this query.",
+    "loogle_43": "gold_chunk_ids missing for this query.",
+    "loogle_65": "gold_chunk_ids missing for this query.",
+    "loogle_72": "gold_chunk_ids missing for this query.",
+    "loogle_180": "gold_chunk_ids missing for this query.",
+    "loogle_197": "gold_chunk_ids missing for this query.",
+    "loogle_252": "gold_chunk_ids missing for this query.",
+    "loogle_253": "gold_chunk_ids missing for this query.",
+    "loogle_292": "gold_chunk_ids missing for this query.",
+    "loogle_305": "gold_chunk_ids missing for this query.",
+    "loogle_347": "gold_chunk_ids missing for this query.",
+    "loogle_376": "gold_chunk_ids missing for this query.",
+    "loogle_446": "gold_chunk_ids missing for this query.",
+    "loogle_481": "gold_chunk_ids missing for this query.",
+    "loogle_485": "gold_chunk_ids missing for this query.",
+    "loogle_487": "gold_chunk_ids missing for this query.",
+    "loogle_488": "gold_chunk_ids missing for this query.",
+    "loogle_489": "gold_chunk_ids missing for this query.",
+    "loogle_490": "gold_chunk_ids missing for this query.",
+    "loogle_493": "gold_chunk_ids missing for this query.",
+    "loogle_494": "gold_chunk_ids missing for this query.",
+    "loogle_496": "gold_chunk_ids missing for this query.",
+    "loogle_497": "gold_chunk_ids missing for this query.",
+    "loogle_499": "gold_chunk_ids missing for this query.",
+    "loogle_500": "gold_chunk_ids missing for this query.",
+    "loogle_520": "gold_chunk_ids missing for this query.",
+    "loogle_523": "gold_chunk_ids missing for this query."
+  },
+  "command_used": "evaluate_retrieval_run.py --run-dir late_chunk_runs/loogle/qwen/c500_o100 --output-dir late_chunk_evaluations/loogle/qwen/c500_o100 --dataset-name loogle --method-name late_chunking --split test --ks 5 10",
+  "package_versions": {
+    "late_chunking": "0.0.0",
+    "click": "8.1.6",
+    "numpy": "1.26.4",
+    "torch": "2.7.0"
+  },
+  "join_summary": {
+    "n_raw_queries": 557,
+    "n_label_rows": 557,
+    "n_queries_missing_label_row": 0,
+    "n_queries_without_primary_relevance": 30
+  },
+  "raw_result_selection_notes": [
+    "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata."
+  ],
+  "run_context": {
+    "method_name": "late_chunking",
+    "dataset_name": "loogle",
+    "split": "test",
+    "run_name": "qwen/c500_o100"
+  }
+}

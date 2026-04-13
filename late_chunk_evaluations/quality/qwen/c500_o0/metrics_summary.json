@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "quality",
+  "split": "validation",
+  "run_name": "qwen/c500_o0",
+  "n_queries": 443,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.43810096153846156,
+    "recall@10": 0.744951923076923,
+    "mrr@5": 0.5625,
+    "mrr@10": 0.5885416666666666,
+    "ndcg@5": 0.47708239543951897,
+    "ndcg@10": 0.5694594454191103,
+    "hit_rate@5": 0.75,
+    "hit_rate@10": 0.9375
+  }
+}

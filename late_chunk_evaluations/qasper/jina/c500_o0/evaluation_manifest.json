@@ -1,0 +1,62 @@
+{
+  "input_files_used": {
+    "run_dir": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/qasper/jina/c500_o0",
+    "raw_results_file": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/qasper/jina/c500_o0/retrieval/retrieval_payloads__jina__late_chunking__per_document.jsonl",
+    "labels_file": null,
+    "run_manifest": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_runs/qasper/jina/c500_o0/run_manifest.json"
+  },
+  "output_files_written": {
+    "metrics_summary_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/qasper/jina/c500_o0/metrics_summary.json",
+    "metrics_per_query_jsonl": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/qasper/jina/c500_o0/metrics_per_query.jsonl",
+    "leaderboard_row_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/qasper/jina/c500_o0/leaderboard_row.json",
+    "evaluation_manifest_json": "/mnt/data/zeinab/SAADI_late-chunking/late_chunk_evaluations/qasper/jina/c500_o0/evaluation_manifest.json"
+  },
+  "relevance_source_used": {
+    "labels_source": "generated_from_run",
+    "primary_relevance": "gold_chunk_ids",
+    "available_label_counts": {
+      "gold_chunk_ids": 76,
+      "silver_chunk_ids": 46,
+      "relevant_ids": 80,
+      "silver_chunk_groups": 46
+    }
+  },
+  "primary_relevance_choice": "gold_chunk_ids",
+  "assumptions": [
+    "Metrics are computed over deduplicated retrieved ids while preserving the first occurrence from the raw ranking.",
+    "Scores are retained only for provenance; Recall, MRR, NDCG, and HitRate are computed from ranked order.",
+    "Binary relevance is used unless graded relevance scores are explicitly present in the labels file.",
+    "Labels were generated inside this repo from the run's selected QA entries and exact chunk boundaries for this experiment.",
+    "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata.",
+    "Primary relevance uses gold_chunk_ids. Queries without gold labels are left null rather than back-filled from silver labels."
+  ],
+  "missing_metrics_and_reasons": {
+    "qasper_5": "gold_chunk_ids missing for this query.",
+    "qasper_20": "gold_chunk_ids missing for this query.",
+    "qasper_21": "gold_chunk_ids missing for this query.",
+    "qasper_70": "gold_chunk_ids missing for this query.",
+    "qasper_79": "gold_chunk_ids missing for this query."
+  },
+  "command_used": "evaluate_retrieval_run.py --run-dir late_chunk_runs/qasper/jina/c500_o0 --output-dir late_chunk_evaluations/qasper/jina/c500_o0 --dataset-name qasper --method-name late_chunking --split test --ks 5 10",
+  "package_versions": {
+    "late_chunking": "0.0.0",
+    "click": "8.1.6",
+    "numpy": "1.26.4",
+    "torch": "2.7.0"
+  },
+  "join_summary": {
+    "n_raw_queries": 81,
+    "n_label_rows": 81,
+    "n_queries_missing_label_row": 0,
+    "n_queries_without_primary_relevance": 5
+  },
+  "raw_result_selection_notes": [
+    "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata."
+  ],
+  "run_context": {
+    "method_name": "late_chunking",
+    "dataset_name": "qasper",
+    "split": "test",
+    "run_name": "jina/c500_o0"
+  }
+}

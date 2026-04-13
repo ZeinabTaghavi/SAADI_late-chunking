@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "qasper",
+  "split": "test",
+  "run_name": "jina/c200_o0",
+  "n_queries": 81,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.6493939393939394,
+    "recall@10": 0.8221212121212121,
+    "mrr@5": 0.4618181818181818,
+    "mrr@10": 0.47754689754689755,
+    "ndcg@5": 0.46679109995805684,
+    "ndcg@10": 0.5284753455535363,
+    "hit_rate@5": 0.7636363636363637,
+    "hit_rate@10": 0.8909090909090909
+  }
+}

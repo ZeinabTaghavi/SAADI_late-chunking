@@ -1,0 +1,22 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "loogle",
+  "split": "test",
+  "run_name": "jina/c500_o50",
+  "n_queries": 557,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "retrieval_metrics": {
+    "recall@5": 0.6694649896311267,
+    "recall@10": 0.7906545020884614,
+    "mrr@5": 0.49215686274509807,
+    "mrr@10": 0.5076194994126683,
+    "ndcg@5": 0.534182160552046,
+    "ndcg@10": 0.5733257435223925,
+    "hit_rate@5": 0.6850094876660342,
+    "hit_rate@10": 0.8026565464895635
+  }
+}

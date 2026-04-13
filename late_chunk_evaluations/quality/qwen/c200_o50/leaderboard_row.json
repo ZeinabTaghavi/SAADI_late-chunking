@@ -1,0 +1,14 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "quality",
+  "split": "validation",
+  "run_name": "qwen/c200_o50",
+  "recall@5": 0.17019635598141694,
+  "recall@10": 0.40475283101045295,
+  "mrr@5": 0.2989583333333333,
+  "mrr@10": 0.31979166666666664,
+  "ndcg@5": 0.2576540481001198,
+  "ndcg@10": 0.33003968920580223,
+  "hit_rate@5": 0.625,
+  "hit_rate@10": 0.75
+}
