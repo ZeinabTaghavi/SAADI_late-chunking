@@ -385,3 +385,82 @@ def test_evaluate_run_generates_narrativeqa_labels_from_answer_text(tmp_path):
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["n2"]
     assert "answer text" in " ".join(manifest["assumptions"]).lower()
+
+
+def test_evaluate_run_generates_novelhopqa_window_labels_from_run_artifacts(tmp_path):
+    run_dir = tmp_path / "late_chunk_runs" / "novelqa" / "qwen" / "c500_o0"
+    _write_json(
+        run_dir / "run_manifest.json",
+        {
+            "dataset_name": "novelqa",
+            "run_name": "qwen/c500_o0",
+            "artifact_paths": {
+                "retrieval_payloads_qwen": "retrieval/retrieval_payloads__qwen__late_chunking__per_document.jsonl",
+            },
+        },
+    )
+    _write_json(
+        run_dir / "selection" / "qa_entries.json",
+        [
+            {
+                "query_id": "hop_1:q0",
+                "doc_id": "book:B30",
+                "document_id": "book:B30",
+                "question": "Who discovered the clue?",
+                "answers": ["Alice"],
+                "retrieval_spans": ["Context 30"],
+                "retrieval_span_mode": "window",
+            }
+        ],
+    )
+    _write_jsonl(
+        run_dir / "chunking" / "book:B30" / "chunks.jsonl",
+        [
+            {
+                "doc_id": "book:B30",
+                "chunk_id": "h1",
+                "chunk_index": 0,
+                "raw_text": "Context 30 begins here and continues.",
+            },
+            {
+                "doc_id": "book:B30",
+                "chunk_id": "h2",
+                "chunk_index": 1,
+                "raw_text": "More of Context 30 appears in this next chunk.",
+            },
+        ],
+    )
+    _write_jsonl(
+        run_dir / "retrieval" / "retrieval_payloads__qwen__late_chunking__per_document.jsonl",
+        [
+            {
+                "query_id": "hop_1:q0",
+                "doc_id": "book:B30",
+                "question": "Who discovered the clue?",
+                "retrieved_chunk_ids": ["x0", "h1", "h2"],
+                "scores": [0.9, 0.8, 0.7],
+            }
+        ],
+    )
+
+    result = evaluate_run(
+        run_dir=run_dir,
+        method_name="late_chunking",
+        dataset_name="novelqa",
+        split="test",
+        ks=[5, 10],
+    )
+
+    output_dir = Path(result["output_dir"])
+    metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
+    manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
+    per_query_rows = [
+        json.loads(line)
+        for line in (output_dir / "metrics_per_query.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+
+    assert metrics_summary["primary_relevance"] == "silver_chunk_ids"
+    assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
+    assert per_query_rows[0]["relevant_ids"] == ["h1", "h2"]
+    assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
