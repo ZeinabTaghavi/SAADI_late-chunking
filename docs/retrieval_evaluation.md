@@ -45,6 +45,31 @@ If you want a non-default location, you can still pass `--output-dir`.
 
 If you already have a separate labels file and want to use it instead of in-process generation, pass `--labels-file path/to/labels.json`.
 
+## Batch QASPER Runs
+
+To evaluate every existing QASPER run you already have for both Jina and Qwen, use:
+
+```bash
+bash scripts/run_all_qasper_retrieval_evaluations.sh
+```
+
+By default it scans:
+
+- `late_chunk_runs/qasper/jina/...`
+- `late_chunk_runs/qasper/qwen/...`
+
+and writes mirrored compact outputs under:
+
+- `late_chunk_evaluations/qasper/jina/...`
+- `late_chunk_evaluations/qasper/qwen/...`
+
+Useful overrides:
+
+- `RETRIEVERS="jina"` to evaluate only Jina runs
+- `DRY_RUN=1` to print commands without executing them
+- `STOP_ON_ERROR=0` to continue past failures
+- `RUN_ROOT=/path/to/runs` and `EVAL_ROOT=/path/to/evals` to customize roots
+
 ## Labels
 
 When `--labels-file` is provided, the evaluator accepts JSON or JSONL label rows keyed by `query_id`. It prefers:
