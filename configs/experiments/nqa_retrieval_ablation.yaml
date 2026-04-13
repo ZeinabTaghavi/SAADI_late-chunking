@@ -33,7 +33,7 @@ late_chunking:
 
 retrieval:
   retriever: jina
-  retrieve_k: 5
+  retrieve_k: 10
   mode: both
   scope: per_document
 
