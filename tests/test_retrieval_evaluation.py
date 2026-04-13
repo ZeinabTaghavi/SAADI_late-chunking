@@ -307,3 +307,81 @@ def test_evaluate_run_generates_loogle_labels_from_run_artifacts(tmp_path):
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
     assert per_query_rows[0]["relevant_ids"] == ["l2"]
     assert manifest["relevance_source_used"]["labels_source"] == "generated_from_run"
+
+
+def test_evaluate_run_generates_narrativeqa_labels_from_answer_text(tmp_path):
+    run_dir = tmp_path / "late_chunk_runs" / "narrativeqa" / "jina" / "c300_o0"
+    _write_json(
+        run_dir / "run_manifest.json",
+        {
+            "dataset_name": "narrativeqa",
+            "run_name": "jina/c300_o0",
+            "artifact_paths": {
+                "retrieval_payloads_jina": "retrieval/retrieval_payloads__jina__late_chunking__per_document.jsonl",
+            },
+        },
+    )
+    _write_json(
+        run_dir / "selection" / "qa_entries.json",
+        [
+            {
+                "query_id": "narrativeqa_0",
+                "doc_id": "story-1",
+                "document_id": "story-1",
+                "question": "Who was the captain?",
+                "answers": ["Captain Aster"],
+                "retrieval_spans": [],
+            }
+        ],
+    )
+    _write_jsonl(
+        run_dir / "chunking" / "story-1" / "chunks.jsonl",
+        [
+            {
+                "doc_id": "story-1",
+                "chunk_id": "n1",
+                "chunk_index": 0,
+                "raw_text": "The voyage began in winter.",
+            },
+            {
+                "doc_id": "story-1",
+                "chunk_id": "n2",
+                "chunk_index": 1,
+                "raw_text": "Captain Aster led the crew through the storm.",
+            },
+        ],
+    )
+    _write_jsonl(
+        run_dir / "retrieval" / "retrieval_payloads__jina__late_chunking__per_document.jsonl",
+        [
+            {
+                "query_id": "narrativeqa_0",
+                "doc_id": "story-1",
+                "question": "Who was the captain?",
+                "retrieved_chunk_ids": ["n1", "n2"],
+                "scores": [0.82, 0.8],
+            }
+        ],
+    )
+
+    result = evaluate_run(
+        run_dir=run_dir,
+        method_name="late_chunking",
+        dataset_name="narrativeqa",
+        split="test",
+        ks=[5, 10],
+    )
+
+    output_dir = Path(result["output_dir"])
+    metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
+    manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
+    per_query_rows = [
+        json.loads(line)
+        for line in (output_dir / "metrics_per_query.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+
+    assert metrics_summary["primary_relevance"] == "gold_chunk_ids"
+    assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
+    assert per_query_rows[0]["relevant_ids"] == ["n2"]
+    assert "answer text" in " ".join(manifest["assumptions"]).lower()

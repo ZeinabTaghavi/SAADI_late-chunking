@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from chunked_pooling.retrieval_labeling import (
     LabelRow,
+    NARRATIVEQA_DATASET_NAMES,
     generate_label_rows_for_run,
     infer_dataset_name_for_run,
     load_label_rows,
@@ -527,6 +528,10 @@ def evaluate_run(
         assumptions.append(
             "Labels were generated inside this repo from the run's selected QA entries and exact chunk boundaries for this experiment."
         )
+        if str(resolved_dataset_name).strip().lower() in NARRATIVEQA_DATASET_NAMES:
+            assumptions.append(
+                "NarrativeQA does not provide retrieval evidence spans in this loader, so generated labels fall back to matching answer text against the run's chunks."
+            )
     assumptions.extend(selection_notes)
     assumptions.extend(relevance_notes)
 

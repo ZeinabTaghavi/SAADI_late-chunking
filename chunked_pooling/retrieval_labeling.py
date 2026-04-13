@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
 LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
+NARRATIVEQA_DATASET_NAMES = {"narrativeqa", "deepmind/narrativeqa"}
 
 
 @dataclass
@@ -493,9 +494,13 @@ def generate_label_rows_for_run(
     dataset_name: Optional[str] = None,
 ) -> Dict[str, LabelRow]:
     resolved_dataset_name = str(dataset_name or infer_dataset_name_for_run(run_dir) or "").strip().lower()
-    if resolved_dataset_name not in QASPER_DATASET_NAMES and resolved_dataset_name not in LOOGLE_DATASET_NAMES:
+    if (
+        resolved_dataset_name not in QASPER_DATASET_NAMES
+        and resolved_dataset_name not in LOOGLE_DATASET_NAMES
+        and resolved_dataset_name not in NARRATIVEQA_DATASET_NAMES
+    ):
         raise NotImplementedError(
-            "Automatic in-process label generation is currently implemented only for qasper and loogle."
+            "Automatic in-process label generation is currently implemented only for qasper, loogle, and narrativeqa."
         )
 
     chunks_by_doc = _chunks_by_doc_from_run(run_dir)
