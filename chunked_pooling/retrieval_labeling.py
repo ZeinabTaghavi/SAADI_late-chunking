@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
 LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
 NARRATIVEQA_DATASET_NAMES = {"narrativeqa", "deepmind/narrativeqa"}
+QUALITY_DATASET_NAMES = {"quality", "tasksource/quality"}
 NOVELHOPQA_DATASET_NAMES = {
     "novelqa",
     "novelhopqa",
@@ -503,10 +504,11 @@ def generate_label_rows_for_run(
         resolved_dataset_name not in QASPER_DATASET_NAMES
         and resolved_dataset_name not in LOOGLE_DATASET_NAMES
         and resolved_dataset_name not in NARRATIVEQA_DATASET_NAMES
+        and resolved_dataset_name not in QUALITY_DATASET_NAMES
         and resolved_dataset_name not in NOVELHOPQA_DATASET_NAMES
     ):
         raise NotImplementedError(
-            "Automatic in-process label generation is currently implemented only for qasper, loogle, narrativeqa, and novelhopqa."
+            "Automatic in-process label generation is currently implemented only for qasper, loogle, narrativeqa, quality, and novelhopqa."
         )
 
     chunks_by_doc = _chunks_by_doc_from_run(run_dir)

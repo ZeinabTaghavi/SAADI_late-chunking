@@ -7,7 +7,7 @@ The compact evaluator prefers:
 - `retrieval/retrieval_payloads__<retriever>__late_chunking__per_document.jsonl`
 - fallback: `retrieval/retrieval_results_raw__<retriever>__late_chunking__per_document.json`
 
-Both are read from an existing `--run-dir`. The evaluator can either join with an external labels file or generate labels inside the pipeline for supported datasets such as QASPER, LooGLE, NarrativeQA, and NovelHopQA. By default, it mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
+Both are read from an existing `--run-dir`. The evaluator can either join with an external labels file or generate labels inside the pipeline for supported datasets such as QASPER, LooGLE, NarrativeQA, QuALITY, and NovelHopQA. By default, it mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
 
 - `metrics_summary.json`
 - `metrics_per_query.jsonl`
@@ -120,6 +120,31 @@ Useful overrides:
 - `STOP_ON_ERROR=0` to continue past failures
 - `RUN_ROOT=/path/to/runs` and `EVAL_ROOT=/path/to/evals` to customize roots
 
+## Batch QuALITY Runs
+
+To evaluate every existing QuALITY run you already have for both Jina and Qwen, use:
+
+```bash
+bash scripts/run_all_quality_retrieval_evaluations.sh
+```
+
+By default it scans:
+
+- `late_chunk_runs/quality/jina/...`
+- `late_chunk_runs/quality/qwen/...`
+
+and writes mirrored compact outputs under:
+
+- `late_chunk_evaluations/quality/jina/...`
+- `late_chunk_evaluations/quality/qwen/...`
+
+Useful overrides:
+
+- `RETRIEVERS="jina"` to evaluate only Jina runs
+- `DRY_RUN=1` to print commands without executing them
+- `STOP_ON_ERROR=0` to continue past failures
+- `RUN_ROOT=/path/to/runs` and `EVAL_ROOT=/path/to/evals` to customize roots
+
 ## Batch NovelHopQA Runs
 
 To evaluate every existing NovelHopQA or NovelQA run you already have for both Jina and Qwen, use:
@@ -157,9 +182,9 @@ If a requested primary relevance field is unavailable for a query, that query ge
 
 `silver_chunk_groups` are preserved in label loading for provenance, but they are not enough by themselves to compute the requested binary ranking metrics. If a labels file only contains grouped silver support without flat relevant ids, the manifest records that limitation and the summary metrics stay `null`.
 
-## Internal QASPER, LooGLE, NarrativeQA, And NovelHopQA Labels
+## Internal QASPER, LooGLE, NarrativeQA, QuALITY, And NovelHopQA Labels
 
-For QASPER, LooGLE, NarrativeQA, and NovelHopQA runs, labels are generated from:
+For QASPER, LooGLE, NarrativeQA, QuALITY, and NovelHopQA runs, labels are generated from:
 
 - `selection/qa_entries.json` for the selected questions and evidence spans
 - `chunking/<doc_id>/chunks.jsonl` for the exact chunk boundaries of that experiment
@@ -167,5 +192,7 @@ For QASPER, LooGLE, NarrativeQA, and NovelHopQA runs, labels are generated from:
 This means `gold_chunk_ids`, `silver_chunk_ids`, and `silver_chunk_groups` are recomputed per run, so changes in chunk size or overlap automatically change the labels as well.
 
 For NarrativeQA specifically, the loader does not expose retrieval evidence spans, so internal labeling falls back to answer-text matching against the run's chunks. That keeps the evaluation run-specific, but it is weaker supervision than span-based evidence labels.
+
+For QuALITY specifically, the loader does not expose retrieval evidence spans, so internal labeling falls back to matching the gold answer choice text against the run's chunks. That keeps the evaluation run-specific, but it is weaker supervision than span-based evidence labels and may leave some queries without usable labels when the answer choice is abstractive.
 
 For NovelHopQA specifically, the loader provides `gold_context_window` / `retrieval_spans` with `retrieval_span_mode="window"`, so labels are generated against the run's exact chunk boundaries using that context-window overlap logic.
