@@ -72,11 +72,9 @@ def test_evaluate_run_writes_compact_artifacts(tmp_path):
         ],
     )
 
-    output_dir = run_dir / "evaluation"
     result = evaluate_run(
         run_dir=run_dir,
         labels_file=labels_path,
-        output_dir=output_dir,
         method_name="late_chunking",
         dataset_name="qasper",
         split="test",
@@ -84,6 +82,7 @@ def test_evaluate_run_writes_compact_artifacts(tmp_path):
         command="python3 evaluate_retrieval_run.py ...",
     )
 
+    output_dir = Path(result["output_dir"])
     metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
     leaderboard_row = json.loads((output_dir / "leaderboard_row.json").read_text())
     manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
@@ -94,6 +93,7 @@ def test_evaluate_run_writes_compact_artifacts(tmp_path):
     ]
 
     assert result["metrics_summary"]["primary_relevance"] == "gold_chunk_ids"
+    assert output_dir == tmp_path / "late_chunk_evaluations" / "qasper" / "jina" / "c300_o0"
     assert metrics_summary["method_name"] == "late_chunking"
     assert metrics_summary["retrieval_metrics"]["recall@5"] == pytest.approx(0.75)
     assert metrics_summary["retrieval_metrics"]["mrr@5"] == pytest.approx(0.5)
@@ -129,16 +129,16 @@ def test_evaluate_run_reports_null_metrics_when_only_grouped_silver_exists(tmp_p
         ],
     )
 
-    output_dir = tmp_path / "evaluation"
-    evaluate_run(
+    result = evaluate_run(
         run_dir=run_dir,
         labels_file=labels_path,
-        output_dir=output_dir,
+        output_dir=tmp_path / "evaluation_override",
         method_name="late_chunking",
         dataset_name="toy",
         split="test",
     )
 
+    output_dir = Path(result["output_dir"])
     metrics_summary = json.loads((output_dir / "metrics_summary.json").read_text())
     manifest = json.loads((output_dir / "evaluation_manifest.json").read_text())
     per_query_rows = [

@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
 DEFAULT_K_VALUES = (5, 10)
+DEFAULT_EVALUATION_ROOT = "late_chunk_evaluations"
 LABEL_SOURCE_CHOICES = (
     "auto",
     "gold_chunk_ids",
@@ -598,11 +599,28 @@ def _relative_or_absolute(path: Path, root: Path) -> str:
         return str(path.resolve())
 
 
+def default_output_dir_for_run(
+    run_dir: Path,
+    *,
+    evaluation_root_name: str = DEFAULT_EVALUATION_ROOT,
+) -> Path:
+    parts = list(run_dir.expanduser().parts)
+    for index in range(len(parts) - 1, -1, -1):
+        if parts[index] != "late_chunk_runs":
+            continue
+        rewritten = parts[:index] + [evaluation_root_name] + parts[index + 1 :]
+        return Path(*rewritten)
+    raise ValueError(
+        "Could not infer the default evaluation output directory because the run directory "
+        "does not contain a 'late_chunk_runs' path segment. Pass --output-dir explicitly."
+    )
+
+
 def evaluate_run(
     *,
     run_dir: Path,
     labels_file: Path,
-    output_dir: Path,
+    output_dir: Optional[Path] = None,
     method_name: Optional[str] = None,
     dataset_name: Optional[str] = None,
     split: Optional[str] = None,
@@ -622,6 +640,7 @@ def evaluate_run(
     if not normalized_k_values:
         raise ValueError("At least one positive k value is required.")
 
+    resolved_output_dir = output_dir or default_output_dir_for_run(run_dir)
     selected_raw_file, run_manifest, selection_notes = select_raw_results_file(
         run_dir,
         explicit_path=raw_results_file,
@@ -731,11 +750,11 @@ def evaluate_run(
                 "Metric could not be computed because no query had usable relevance labels for the selected primary relevance source.",
             )
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    metrics_summary_path = output_dir / "metrics_summary.json"
-    per_query_path = output_dir / "metrics_per_query.jsonl"
-    leaderboard_path = output_dir / "leaderboard_row.json"
-    manifest_path = output_dir / "evaluation_manifest.json"
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_summary_path = resolved_output_dir / "metrics_summary.json"
+    per_query_path = resolved_output_dir / "metrics_per_query.jsonl"
+    leaderboard_path = resolved_output_dir / "leaderboard_row.json"
+    manifest_path = resolved_output_dir / "evaluation_manifest.json"
 
     metrics_summary = OrderedDict(
         [
@@ -854,10 +873,11 @@ def evaluate_run(
         "metrics_summary": metrics_summary,
         "leaderboard_row": leaderboard_row,
         "manifest": manifest,
+        "output_dir": str(resolved_output_dir.resolve()),
         "output_paths": {
-            "metrics_summary_json": _relative_or_absolute(metrics_summary_path, output_dir),
-            "metrics_per_query_jsonl": _relative_or_absolute(per_query_path, output_dir),
-            "leaderboard_row_json": _relative_or_absolute(leaderboard_path, output_dir),
-            "evaluation_manifest_json": _relative_or_absolute(manifest_path, output_dir),
+            "metrics_summary_json": _relative_or_absolute(metrics_summary_path, resolved_output_dir),
+            "metrics_per_query_jsonl": _relative_or_absolute(per_query_path, resolved_output_dir),
+            "leaderboard_row_json": _relative_or_absolute(leaderboard_path, resolved_output_dir),
+            "evaluation_manifest_json": _relative_or_absolute(manifest_path, resolved_output_dir),
         },
     }

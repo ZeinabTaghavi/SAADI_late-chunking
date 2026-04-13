@@ -7,12 +7,17 @@ The compact evaluator prefers:
 - `retrieval/retrieval_payloads__<retriever>__late_chunking__per_document.jsonl`
 - fallback: `retrieval/retrieval_results_raw__<retriever>__late_chunking__per_document.json`
 
-Both are read from an existing `--run-dir`. The evaluator joins those rows with an external labels file and writes only four compact outputs:
+Both are read from an existing `--run-dir`. The evaluator joins those rows with an external labels file and, by default, mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
 
 - `metrics_summary.json`
 - `metrics_per_query.jsonl`
 - `leaderboard_row.json`
 - `evaluation_manifest.json`
+
+Example:
+
+- run input: `late_chunk_runs/qasper/jina/c300_o0`
+- default evaluation output: `late_chunk_evaluations/qasper/jina/c300_o0`
 
 ## Usage
 
@@ -20,7 +25,6 @@ Both are read from an existing `--run-dir`. The evaluator joins those rows with 
 python3 evaluate_retrieval_run.py \
   --run-dir late_chunk_runs/qasper/jina/c300_o0 \
   --labels-file path/to/labels.json \
-  --output-dir late_chunk_runs/qasper/jina/c300_o0/evaluation \
   --method-name late_chunking \
   --dataset-name qasper \
   --split test \
@@ -33,12 +37,13 @@ Or with the shell wrapper:
 bash scripts/run_retrieval_evaluation.sh \
   --run-dir late_chunk_runs/qasper/jina/c300_o0 \
   --labels-file path/to/labels.json \
-  --output-dir late_chunk_runs/qasper/jina/c300_o0/evaluation \
   --method-name late_chunking \
   --dataset-name qasper \
   --split test \
   --ks 5 10
 ```
+
+If you want a non-default location, you can still pass `--output-dir`.
 
 ## Labels
 
