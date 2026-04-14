@@ -19,13 +19,23 @@
       "silver_chunk_ids": 292,
       "relevant_ids": 292,
       "silver_chunk_groups": 292
-    }
+    },
+    "reported_views": [
+      "gold",
+      "silver_loose",
+      "loose_union",
+      "gold_hit",
+      "silver_strict_hit",
+      "strict_union_hit"
+    ]
   },
   "primary_relevance_choice": "silver_chunk_ids",
   "assumptions": [
     "Metrics are computed over deduplicated retrieved ids while preserving the first occurrence from the raw ranking.",
     "Scores are retained only for provenance; Recall, MRR, NDCG, and HitRate are computed from ranked order.",
     "Binary relevance is used unless graded relevance scores are explicitly present in the labels file.",
+    "Loose union uses the flattened union of gold_chunk_ids and silver_chunk_ids for binary ranking metrics.",
+    "Strict union hit uses gold hit OR strict silver-group hit, where strict silver-group hit requires retrieving an entire silver_chunk_group inside top-k.",
     "Labels were generated inside this repo from the run's selected QA entries and exact chunk boundaries for this experiment.",
     "NarrativeQA does not provide retrieval evidence spans in this loader, so generated labels fall back to matching answer text against the run's chunks.",
     "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata.",
@@ -504,20 +514,31 @@
     "narrativeqa_752": "silver_chunk_ids missing for this query.",
     "narrativeqa_753": "silver_chunk_ids missing for this query.",
     "narrativeqa_754": "silver_chunk_ids missing for this query.",
-    "narrativeqa_762": "silver_chunk_ids missing for this query."
+    "narrativeqa_762": "silver_chunk_ids missing for this query.",
+    "gold_recall@5": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_recall@10": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_mrr@5": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_mrr@10": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_ndcg@5": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_ndcg@10": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_hit_hit_rate@5": "Metric could not be computed because no query had usable labels for this relevance view.",
+    "gold_hit_hit_rate@10": "Metric could not be computed because no query had usable labels for this relevance view."
   },
   "command_used": "evaluate_retrieval_run.py --run-dir late_chunk_runs/narrativeqa/qwen/c500_o0 --output-dir late_chunk_evaluations/narrativeqa/qwen/c500_o0 --dataset-name narrativeqa --method-name late_chunking --split test --ks 5 10",
   "package_versions": {
     "late_chunking": "0.0.0",
-    "click": "8.1.6",
-    "numpy": "1.26.4",
-    "torch": "2.7.0"
+    "click": "8.3.2",
+    "numpy": "2.2.6",
+    "datasets": "2.19.1",
+    "torch": "2.10.0",
+    "transformers": "4.57.6"
   },
   "join_summary": {
     "n_raw_queries": 765,
     "n_label_rows": 765,
     "n_queries_missing_label_row": 0,
-    "n_queries_without_primary_relevance": 473
+    "n_queries_without_primary_relevance": 473,
+    "n_queries_loose_union_fallback_to_relevant_ids": 0
   },
   "raw_result_selection_notes": [
     "Selected retrieval payload JSONL because it preserves ranked chunk ids, scores, and query metadata."
