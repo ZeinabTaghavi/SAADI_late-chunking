@@ -14,16 +14,15 @@ Both are read from an existing `--run-dir`. The evaluator can either join with a
 - `leaderboard_row.json`
 - `evaluation_manifest.json`
 
-The summary now reports all relevance views in parallel:
+The summary now reports the two metric families in parallel:
 
-- `gold`: binary Recall, MRR, and NDCG over `gold_chunk_ids`
-- `silver_loose`: binary Recall, MRR, and NDCG over flattened `silver_chunk_ids`
-- `loose_union`: binary Recall, MRR, and NDCG over the flattened union of gold and silver-loose ids
+- Ranking metrics over loose relevance targets:
+  - `gold`: Recall, MRR, and NDCG over `gold_chunk_ids`
+  - `silver_loose`: Recall, MRR, and NDCG over flattened `silver_chunk_ids`
+  - `union_loose`: Recall, MRR, and NDCG over the flattened union of gold and silver-loose ids
 - `gold_hit`: HitRate@k for any gold chunk in top-k
 - `silver_strict_hit`: HitRate@k for retrieving an entire `silver_chunk_group` in top-k
 - `strict_union_hit`: HitRate@k for `gold_hit OR silver_strict_hit`
-
-The older flat `retrieval_metrics` block is still written for compatibility and follows `--primary-relevance`.
 
 Example:
 
@@ -189,7 +188,7 @@ When `--labels-file` is provided, the evaluator accepts JSON or JSONL label rows
 - fallback `silver_chunk_ids`
 - fallback `relevant_ids`
 
-If a requested primary relevance field is unavailable for a query, that query gets `null` metrics in the legacy flat block and the reason is recorded in `evaluation_manifest.json`.
+If a requested primary relevance field is unavailable for a query, the affected relevance-view metrics become `null` for that query and the reason is recorded in `evaluation_manifest.json`.
 
 `silver_chunk_groups` are preserved in label loading for strict hit evaluation. They are not flattened into binary ranking relevance automatically unless `silver_chunk_ids` or fallback `relevant_ids` are present.
 

@@ -28,7 +28,7 @@ LABEL_SOURCE_CHOICES = (
     "silver_chunk_ids",
     "relevant_ids",
 )
-LOOSE_VIEW_NAMES = ("gold", "silver_loose", "loose_union")
+LOOSE_VIEW_NAMES = ("gold", "silver_loose", "union_loose")
 STRICT_HIT_VIEW_NAMES = ("gold_hit", "silver_strict_hit", "strict_union_hit")
 LOOSE_METRIC_PREFIXES = ("recall", "mrr", "ndcg")
 
@@ -460,7 +460,7 @@ def _compute_loose_view_metrics(
             graded_relevance=_binary_grades(silver_loose_ids),
             k_values=k_values,
         ),
-        "loose_union": compute_query_metrics(
+        "union_loose": compute_query_metrics(
             ranked_ids=ranked_ids,
             relevant_ids=loose_union_ids,
             graded_relevance=_binary_grades(loose_union_ids),
@@ -470,7 +470,7 @@ def _compute_loose_view_metrics(
     ids_by_view = {
         "gold": gold_ids,
         "silver_loose": silver_loose_ids,
-        "loose_union": loose_union_ids,
+        "union_loose": loose_union_ids,
     }
     return metrics_by_view, ids_by_view, used_union_fallback
 
@@ -670,13 +670,6 @@ def evaluate_run(
     assumptions.extend(relevance_notes)
 
     per_query_rows: List[Dict[str, Any]] = []
-    aggregate_inputs: Dict[str, List[Optional[float]]] = OrderedDict()
-    for k in normalized_k_values:
-        aggregate_inputs["recall@%d" % k] = []
-        aggregate_inputs["mrr@%d" % k] = []
-        aggregate_inputs["ndcg@%d" % k] = []
-        aggregate_inputs["hit_rate@%d" % k] = []
-
     aggregate_loose_views: Dict[str, Dict[str, List[Optional[float]]]] = OrderedDict(
         (
             view_name,
@@ -721,15 +714,6 @@ def evaluate_run(
                 reason,
             )
 
-        metric_values = compute_query_metrics(
-            ranked_ids=deduped_ids,
-            relevant_ids=relevant_ids,
-            graded_relevance=grades,
-            k_values=normalized_k_values,
-        )
-        for metric_name, value in metric_values.items():
-            aggregate_inputs[metric_name].append(value)
-
         loose_view_metrics, ids_by_view, used_union_fallback = _compute_loose_view_metrics(
             ranked_ids=deduped_ids,
             label=label,
@@ -757,20 +741,12 @@ def evaluate_run(
         per_query_row["query_id"] = raw_row.query_id
         per_query_row["doc_id"] = raw_row.doc_id or (label.doc_id if label else None)
         per_query_row["question"] = raw_row.question or (label.question if label else None)
-        for k in normalized_k_values:
-            per_query_row["recall@%d" % k] = metric_values["recall@%d" % k]
-        for k in normalized_k_values:
-            per_query_row["mrr@%d" % k] = metric_values["mrr@%d" % k]
-        for k in normalized_k_values:
-            per_query_row["ndcg@%d" % k] = metric_values["ndcg@%d" % k]
-        for k in normalized_k_values:
-            per_query_row["hit_rate@%d" % k] = metric_values["hit_rate@%d" % k]
         per_query_row["retrieved_ids_top10"] = deduped_ids[:10]
         per_query_row["relevant_ids"] = list(relevant_ids)
         per_query_row["gold_chunk_ids"] = list(label.gold_chunk_ids) if label else []
         per_query_row["silver_chunk_ids"] = list(label.silver_chunk_ids) if label else []
         per_query_row["silver_chunk_groups"] = [list(group) for group in (label.silver_chunk_groups if label else [])]
-        per_query_row["loose_union_ids"] = list(ids_by_view["loose_union"])
+        per_query_row["union_loose_ids"] = list(ids_by_view["union_loose"])
         for view_name, view_metrics in loose_view_metrics.items():
             for metric_name, value in view_metrics.items():
                 metric_prefix = metric_name.split("@", 1)[0]
@@ -784,35 +760,27 @@ def evaluate_run(
                     per_query_row["%s@%s" % (view_name, suffix)] = value
         per_query_rows.append(per_query_row)
 
-    retrieval_metrics: Dict[str, Optional[float]] = OrderedDict()
-    for k in normalized_k_values:
-        retrieval_metrics["recall@%d" % k] = _mean(aggregate_inputs["recall@%d" % k])
-    for k in normalized_k_values:
-        retrieval_metrics["mrr@%d" % k] = _mean(aggregate_inputs["mrr@%d" % k])
-    for k in normalized_k_values:
-        retrieval_metrics["ndcg@%d" % k] = _mean(aggregate_inputs["ndcg@%d" % k])
-    for k in normalized_k_values:
-        retrieval_metrics["hit_rate@%d" % k] = _mean(aggregate_inputs["hit_rate@%d" % k])
-
-    retrieval_metrics_by_view: Dict[str, Dict[str, Optional[float]]] = OrderedDict()
+    ranking_metrics_by_view: Dict[str, Dict[str, Optional[float]]] = OrderedDict()
     for view_name, metric_inputs in aggregate_loose_views.items():
-        retrieval_metrics_by_view[view_name] = OrderedDict(
+        ranking_metrics_by_view[view_name] = OrderedDict(
             (metric_name, _mean(values))
             for metric_name, values in metric_inputs.items()
         )
+    hit_rate_metrics_by_view: Dict[str, Dict[str, Optional[float]]] = OrderedDict()
     for view_name, metric_inputs in aggregate_strict_hit_views.items():
-        retrieval_metrics_by_view[view_name] = OrderedDict(
+        hit_rate_metrics_by_view[view_name] = OrderedDict(
             (metric_name, _mean(values))
             for metric_name, values in metric_inputs.items()
         )
 
-    for metric_name, value in retrieval_metrics.items():
-        if value is None:
-            missing_metric_reasons.setdefault(
-                metric_name,
-                "Metric could not be computed because no query had usable relevance labels for the selected primary relevance source.",
-            )
-    for view_name, metric_values_by_view in retrieval_metrics_by_view.items():
+    for view_name, metric_values_by_view in ranking_metrics_by_view.items():
+        for metric_name, value in metric_values_by_view.items():
+            if value is None:
+                missing_metric_reasons.setdefault(
+                    "%s_%s" % (view_name, metric_name),
+                    "Metric could not be computed because no query had usable labels for this relevance view.",
+                )
+    for view_name, metric_values_by_view in hit_rate_metrics_by_view.items():
         for metric_name, value in metric_values_by_view.items():
             if value is None:
                 missing_metric_reasons.setdefault(
@@ -840,8 +808,8 @@ def evaluate_run(
             ("n_queries", len(raw_rows)),
             ("k_values", list(normalized_k_values)),
             ("primary_relevance", chosen_relevance),
-            ("retrieval_metrics", retrieval_metrics),
-            ("retrieval_metrics_by_view", retrieval_metrics_by_view),
+            ("ranking_metrics_by_view", ranking_metrics_by_view),
+            ("hit_rate_metrics_by_view", hit_rate_metrics_by_view),
         ]
     )
 
@@ -853,10 +821,10 @@ def evaluate_run(
             ("run_name", resolved_run_name),
         ]
     )
-    for metric_name, value in retrieval_metrics.items():
-        leaderboard_row[metric_name] = value
-    leaderboard_row["primary_relevance"] = chosen_relevance
-    for view_name, metric_values_by_view in retrieval_metrics_by_view.items():
+    for view_name, metric_values_by_view in ranking_metrics_by_view.items():
+        for metric_name, value in metric_values_by_view.items():
+            leaderboard_row[_flatten_view_metric_name(view_name, metric_name)] = value
+    for view_name, metric_values_by_view in hit_rate_metrics_by_view.items():
         for metric_name, value in metric_values_by_view.items():
             leaderboard_row[_flatten_view_metric_name(view_name, metric_name)] = value
 
@@ -901,7 +869,7 @@ def evaluate_run(
                             [
                                 "gold",
                                 "silver_loose",
-                                "loose_union",
+                                "union_loose",
                                 "gold_hit",
                                 "silver_strict_hit",
                                 "strict_union_hit",
