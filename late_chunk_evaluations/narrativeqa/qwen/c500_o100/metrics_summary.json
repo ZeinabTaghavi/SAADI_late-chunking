@@ -9,17 +9,7 @@
     10
   ],
   "primary_relevance": "silver_chunk_ids",
-  "retrieval_metrics": {
-    "recall@5": 0.0479939534460811,
-    "recall@10": 0.09900712467201829,
-    "mrr@5": 0.05518617021276596,
-    "mrr@10": 0.07025603681188787,
-    "ndcg@5": 0.03951135200855396,
-    "ndcg@10": 0.058013435810336585,
-    "hit_rate@5": 0.10904255319148937,
-    "hit_rate@10": 0.21808510638297873
-  },
-  "retrieval_metrics_by_view": {
+  "ranking_metrics_by_view": {
     "gold": {
       "recall@5": null,
       "recall@10": null,
@@ -36,14 +26,16 @@
       "ndcg@5": 0.03951135200855396,
       "ndcg@10": 0.058013435810336585
     },
-    "loose_union": {
+    "union_loose": {
       "recall@5": 0.0479939534460811,
       "recall@10": 0.09900712467201829,
       "mrr@5": 0.05518617021276596,
       "mrr@10": 0.07025603681188787,
       "ndcg@5": 0.03951135200855396,
       "ndcg@10": 0.058013435810336585
-    },
+    }
+  },
+  "hit_rate_metrics_by_view": {
     "gold_hit": {
       "hit_rate@5": null,
       "hit_rate@10": null

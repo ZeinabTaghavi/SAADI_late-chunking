@@ -23,7 +23,7 @@
     "reported_views": [
       "gold",
       "silver_loose",
-      "loose_union",
+      "union_loose",
       "gold_hit",
       "silver_strict_hit",
       "strict_union_hit"
