@@ -37,10 +37,38 @@ SPLIT="${SPLIT:-test}"
 KS="${KS:-5 10}"
 STOP_ON_ERROR="${STOP_ON_ERROR:-1}"
 DRY_RUN="${DRY_RUN:-0}"
+SKIP_INCOMPATIBLE_QWEN="${SKIP_INCOMPATIBLE_QWEN:-1}"
 
 IFS=' ' read -r -a retriever_array <<< "${RETRIEVERS}"
 IFS=' ' read -r -a overlap_array <<< "${CHUNK_OVERLAPS}"
 IFS=' ' read -r -a k_array <<< "${KS}"
+
+RETRIEVERS_EFFECTIVE="${RETRIEVERS}"
+if [[ " ${RETRIEVERS} " == *" qwen "* ]]; then
+  TRANSFORMERS_VERSION="$("${PYTHON_BIN}" -c 'import transformers; print(transformers.__version__)' 2>/dev/null || true)"
+  if ! "${PYTHON_BIN}" -c 'from packaging.version import Version; import transformers; raise SystemExit(0 if Version(transformers.__version__) >= Version("4.51.0") else 1)' 2>/dev/null; then
+    if [[ "${SKIP_INCOMPATIBLE_QWEN}" == "1" ]]; then
+      filtered_retrievers=()
+      for retriever_name in "${retriever_array[@]}"; do
+        if [[ "${retriever_name}" != "qwen" ]]; then
+          filtered_retrievers+=("${retriever_name}")
+        fi
+      done
+      retriever_array=("${filtered_retrievers[@]}")
+      RETRIEVERS_EFFECTIVE="${retriever_array[*]}"
+      printf 'Skipping qwen because this environment has transformers==%s and qwen requires transformers>=4.51.0.\n' "${TRANSFORMERS_VERSION:-unknown}"
+      printf 'Upgrade transformers or run with SKIP_INCOMPATIBLE_QWEN=0 to keep the hard failure.\n\n'
+    else
+      printf 'qwen requires transformers>=4.51.0, but this environment has transformers==%s.\n' "${TRANSFORMERS_VERSION:-unknown}"
+      exit 1
+    fi
+  fi
+fi
+
+if [[ "${#retriever_array[@]}" -eq 0 ]]; then
+  printf 'No retrievers left to run after compatibility filtering.\n'
+  exit 1
+fi
 
 failed_runs=0
 total_runs=$(( ${#retriever_array[@]} * ${#overlap_array[@]} ))
@@ -66,7 +94,7 @@ run_or_record_failure() {
 }
 
 printf 'Running LooGLE c500 late-chunking retrieval grid:\n'
-printf '  RETRIEVERS=%s\n' "${RETRIEVERS}"
+printf '  RETRIEVERS=%s\n' "${RETRIEVERS_EFFECTIVE}"
 printf '  CHUNK_OVERLAPS=%s\n' "${CHUNK_OVERLAPS}"
 printf '  OUTPUT_ROOT=%s\n' "${OUTPUT_ROOT}"
 printf '  EVAL_ROOT=%s\n' "${EVAL_ROOT}"
@@ -82,7 +110,7 @@ for chunk_overlap in "${overlap_array[@]}"; do
     env
     "DATASET_NAME=${DATASET_NAME}"
     "CONFIG_PATH=${CONFIG_PATH}"
-    "RETRIEVERS=${RETRIEVERS}"
+    "RETRIEVERS=${RETRIEVERS_EFFECTIVE}"
     "CHUNK_SIZE=${CHUNK_SIZE}"
     "CHUNK_OVERLAP=${chunk_overlap}"
     "CHUNK_TOKENIZER_NAME=${CHUNK_TOKENIZER_NAME}"
