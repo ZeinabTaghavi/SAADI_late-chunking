@@ -29,8 +29,15 @@ def chunk_by_sentences(input_text: str, tokenizer: callable):
     return chunks, span_annotations
 
 
+def _pool_span(embeddings, start, end, pooling):
+    if pooling == "last_token":
+        return embeddings[end - 1]
+    return embeddings[start:end].sum(dim=0) / (end - start)
+
+
 def chunked_pooling(
-    model_output: 'BatchEncoding', span_annotation: list, max_length=None
+    model_output: 'BatchEncoding', span_annotation: list, max_length=None,
+    pooling: str = "mean",
 ):
     token_embeddings = model_output[0]
     outputs = []
@@ -44,7 +51,7 @@ def chunked_pooling(
                 if start < (max_length - 1)
             ]
         pooled_embeddings = [
-            embeddings[start:end].sum(dim=0) / (end - start)
+            _pool_span(embeddings, start, end, pooling)
             for start, end in annotations
             if (end - start) >= 1
         ]
