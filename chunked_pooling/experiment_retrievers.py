@@ -468,6 +468,7 @@ class DenseRetriever:
             [token_embeddings],
             [list(model_token_spans)],
             max_length=None,
+            pooling=self.pooling,
         )[0]
         matrix = np.vstack([_to_numpy(embedding) for embedding in output_embeddings])
         if self.normalize:
