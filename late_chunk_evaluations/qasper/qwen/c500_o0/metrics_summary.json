@@ -1,0 +1,52 @@
+{
+  "method_name": "late_chunking",
+  "dataset_name": "qasper",
+  "split": "test",
+  "run_name": "qwen/c500_o0",
+  "n_queries": 81,
+  "k_values": [
+    5,
+    10
+  ],
+  "primary_relevance": "gold_chunk_ids",
+  "ranking_metrics_by_view": {
+    "gold": {
+      "recall@5": 0.7675438596491229,
+      "recall@10": 0.9967105263157895,
+      "mrr@5": 0.5429824561403509,
+      "mrr@10": 0.5569235588972431,
+      "ndcg@5": 0.5542801973094921,
+      "ndcg@10": 0.6495906946129194
+    },
+    "silver_loose": {
+      "recall@5": 0.6851449275362319,
+      "recall@10": 0.9623188405797102,
+      "mrr@5": 0.5322463768115943,
+      "mrr@10": 0.538586956521739,
+      "ndcg@5": 0.5099182703971873,
+      "ndcg@10": 0.6351533542258136
+    },
+    "union_loose": {
+      "recall@5": 0.7408333333333333,
+      "recall@10": 0.9808333333333333,
+      "mrr@5": 0.62,
+      "mrr@10": 0.6257291666666667,
+      "ndcg@5": 0.5821636091016607,
+      "ndcg@10": 0.6929806273230927
+    }
+  },
+  "hit_rate_metrics_by_view": {
+    "gold_hit": {
+      "hit_rate@5": 0.9078947368421053,
+      "hit_rate@10": 1.0
+    },
+    "silver_strict_hit": {
+      "hit_rate@5": 0.5434782608695652,
+      "hit_rate@10": 0.9565217391304348
+    },
+    "strict_union_hit": {
+      "hit_rate@5": 0.925,
+      "hit_rate@10": 1.0
+    }
+  }
+}
