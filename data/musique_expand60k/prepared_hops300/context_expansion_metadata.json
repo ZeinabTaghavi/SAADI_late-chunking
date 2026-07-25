@@ -1,0 +1,52 @@
+{
+  "dataset": "musique",
+  "split": "validation",
+  "source_documents": 2417,
+  "available_queries_by_hop": {
+    "2": 1252,
+    "3": 760,
+    "4": 405
+  },
+  "samples_per_hop": 300,
+  "hop_query_counts": {
+    "2": 300,
+    "3": 300,
+    "4": 300
+  },
+  "hop_group_counts": {
+    "2": 65,
+    "3": 64,
+    "4": 66
+  },
+  "qa_entries": 900,
+  "reused_queries_by_hop": {
+    "2": 100,
+    "3": 100,
+    "4": 100
+  },
+  "new_queries_by_hop": {
+    "2": 200,
+    "3": 200,
+    "4": 200
+  },
+  "expanded_documents": 66,
+  "selected_group_count": 66,
+  "reused_expanded_documents": 64,
+  "new_expanded_documents": 2,
+  "source_group_count": 66,
+  "selected_group_member_instances": 2417,
+  "document_id_mode": "expanded_group_id",
+  "group_membership_json": "group_membership.json",
+  "target_context_tokens": 60000,
+  "tolerance_tokens": 4000,
+  "expansion_seed": 42,
+  "tokenizer": null,
+  "expanded_token_lengths": {
+    "min": 35257,
+    "median": 60991.5,
+    "max": 62251
+  },
+  "missing_documents": 0,
+  "spans_not_contained": 0,
+  "selection_method": "first_within_hop"
+}

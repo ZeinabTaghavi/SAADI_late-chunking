@@ -1,0 +1,26 @@
+output_dir: outputs/musique_expand60k
+dataset:
+  name: musique_3hop
+  split: validation
+  config_name: 3hop
+  qa_n: all
+  qa_selection_method: first
+chunking:
+  strategy: fixed
+  chunk_size: 250
+  overlap: 0
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+late_chunking:
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+retrieval:
+  retriever: jina
+  retrieve_k: 10
+  scope: per_document
+evaluation:
+  compute_per_query: true
+sample:
+  max_documents: null
+  max_qa_entries: null
+output:
+  root: late_chunk_runs

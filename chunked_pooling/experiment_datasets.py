@@ -132,6 +132,12 @@ NOVELHOPQA_DATASET_NAMES = {
     "novelhopqa",
     "abhaygupta1266/novelhopqa",
 }
+MUSIQUE_DATASET_NAMES = {
+    "musique",
+    "musique_2hop",
+    "musique_3hop",
+    "musique_4hop",
+}
 LOOGLE_HF_DATASET_IDS = ("bigai-nlco/LooGLE", "bigainlco/LooGLE")
 LOOGLE_LEGACY_CONFIG_ALIASES = {
     "longdep_summarization": "summarization",
@@ -1825,8 +1831,156 @@ def _load_hf_rows(spec: Dict[str, object], split_name: str) -> List[Dict[str, ob
     return [dict(row) for row in split]
 
 
+def _musique_hop(dataset_name: str, config_name: Optional[str]) -> int:
+    match = re.search(r"([234])hop", str(dataset_name).lower())
+    if match:
+        return int(match.group(1))
+    config_match = re.search(r"([234])", str(config_name or ""))
+    if config_match:
+        return int(config_match.group(1))
+    raise ValueError(
+        "MuSiQue requires a hop-specific dataset name (musique_2hop, musique_3hop, "
+        "or musique_4hop) or config_name."
+    )
+
+
+def load_musique_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
+    import random
+
+    dataset_name = str(loader_config["dataset_name"]).lower()
+    hop = _musique_hop(dataset_name, loader_config.get("config_name"))
+    split = str(loader_config.get("split") or "validation").strip().lower()
+    if split not in {"validation", "valid", "val", "dev"}:
+        raise ValueError("The packaged MuSiQue expansion contains only the validation split")
+
+    default_root = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "musique_expand60k"
+        / "prepared_hops300"
+    )
+    prepared_root = Path(
+        os.getenv("MUSIQUE_PREPARED_ROOT", "").strip() or default_root
+    ).expanduser().resolve()
+    documents_path = prepared_root / "documents.json"
+    qa_path = prepared_root / f"qa_{hop}hop.json"
+    membership_path = prepared_root / "group_membership.json"
+    for required_path in (documents_path, qa_path, membership_path):
+        if not required_path.is_file():
+            raise FileNotFoundError(f"Required packaged MuSiQue file not found: {required_path}")
+
+    with documents_path.open("r", encoding="utf-8") as handle:
+        documents_raw = json.load(handle)
+    with qa_path.open("r", encoding="utf-8") as handle:
+        qa_raw = json.load(handle)
+    with membership_path.open("r", encoding="utf-8") as handle:
+        membership = json.load(handle)
+    if not isinstance(documents_raw, dict) or not isinstance(qa_raw, list) or not isinstance(membership, dict):
+        raise ValueError(f"Invalid packaged MuSiQue schema under {prepared_root}")
+
+    qa_n = loader_config.get("qa_n")
+    total = len(qa_raw)
+    if qa_n in (None, "", "all"):
+        selected_n = total
+    else:
+        selected_n = min(int(qa_n), total)
+    indices = list(range(total))
+    selection_method = str(loader_config.get("qa_selection_method") or "first").strip().lower()
+    if selected_n < total:
+        indices = (
+            random.Random(13).sample(indices, selected_n)
+            if selection_method == "random"
+            else indices[:selected_n]
+        )
+
+    documents: "OrderedDict[str, Dict[str, object]]" = OrderedDict()
+    qa_entries: List[Dict[str, object]] = []
+    for selected_index, source_index in enumerate(indices):
+        row = qa_raw[source_index]
+        if not isinstance(row, dict):
+            raise ValueError(f"MuSiQue QA row {source_index} is not an object")
+        doc_id = str(row.get("document_id") or "").strip()
+        source_doc_id = str(row.get("source_document_id") or "").strip()
+        document_text = documents_raw.get(doc_id)
+        if not doc_id or not isinstance(document_text, str):
+            raise ValueError(f"MuSiQue QA row {source_index} references missing document {doc_id!r}")
+        if source_doc_id and source_doc_id not in membership.get(doc_id, []):
+            raise ValueError(
+                f"MuSiQue QA row {source_index} source {source_doc_id!r} is not a member of {doc_id!r}"
+            )
+
+        raw_spans = row.get("retrieval_spans")
+        spans = [
+            str(span)
+            for span in (raw_spans or [])
+            if isinstance(span, str) and span
+        ]
+        if not spans:
+            raise ValueError(f"MuSiQue QA row {source_index} has no retrieval_spans")
+        for span_index, span in enumerate(spans):
+            if span not in document_text:
+                raise ValueError(
+                    f"MuSiQue QA row {source_index} span {span_index} is not contained verbatim in {doc_id}"
+                )
+
+        raw_answers = row.get("answers")
+        if isinstance(raw_answers, str):
+            answers = [raw_answers]
+        elif isinstance(raw_answers, list):
+            answers = [str(answer) for answer in raw_answers]
+        else:
+            answers = []
+        source_query_id = row.get("id", source_index)
+        qa_entries.append(
+            {
+                "query_id": f"musique_{hop}hop::{source_query_id}",
+                "source_qa_index": source_index,
+                "selected_qa_index": selected_index,
+                "doc_id": doc_id,
+                "document_id": doc_id,
+                "question": str(row.get("question") or "").strip(),
+                "reference_answers": answers,
+                "answers": answers,
+                "retrieval_spans": spans,
+                "evidence_spans": spans,
+                "source_document_id": source_doc_id,
+                "source_split": "validation",
+                "hop": hop,
+                "relevant_doc_ids": [doc_id],
+            }
+        )
+        if doc_id not in documents:
+            documents[doc_id] = {
+                "doc_id": doc_id,
+                "text": document_text,
+                "group_members": list(membership.get(doc_id, [])),
+            }
+
+    logger.info(
+        "Loaded frozen MuSiQue hop=%d split=validation documents=%d qa_entries=%d prepared_root=%s",
+        hop,
+        len(documents),
+        len(qa_entries),
+        prepared_root,
+    )
+    return DatasetBundle(
+        documents=documents,
+        qa_entries=qa_entries,
+        metadata={
+            "loader_type": "musique",
+            "split": "validation",
+            "hop": hop,
+            "qa_n": loader_config.get("qa_n", "all"),
+            "qa_selection_method": selection_method,
+            "prepared_root": str(prepared_root),
+        },
+    )
+
+
 def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
     dataset_name = str(loader_config["dataset_name"]).lower()
+    if dataset_name in MUSIQUE_DATASET_NAMES:
+        return load_musique_bundle(loader_config)
     if dataset_name in QASPER_DATASET_NAMES:
         return load_qasper_bundle(loader_config)
     if dataset_name in LOOGLE_DATASET_NAMES:
@@ -1842,7 +1996,8 @@ def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle
         supported = ", ".join(sorted(DATASET_PRESETS))
         raise ValueError(
             f"Unsupported dataset '{loader_config['dataset_name']}'. "
-            f"Supported presets: {supported}, loogle, narrativeqa, novelqa, qasper, quality"
+            f"Supported presets: {supported}, loogle, musique_2hop, musique_3hop, "
+            "musique_4hop, narrativeqa, novelqa, qasper, quality"
         )
 
     spec = dict(DATASET_PRESETS[dataset_name])

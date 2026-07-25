@@ -19,6 +19,12 @@ NOVELHOPQA_DATASET_NAMES = {
     "novelhopqa",
     "abhaygupta1266/novelhopqa",
 }
+MUSIQUE_DATASET_NAMES = {
+    "musique",
+    "musique_2hop",
+    "musique_3hop",
+    "musique_4hop",
+}
 
 
 @dataclass
@@ -543,9 +549,11 @@ def generate_label_rows_for_run(
         and resolved_dataset_name not in NARRATIVEQA_DATASET_NAMES
         and resolved_dataset_name not in QUALITY_DATASET_NAMES
         and resolved_dataset_name not in NOVELHOPQA_DATASET_NAMES
+        and resolved_dataset_name not in MUSIQUE_DATASET_NAMES
     ):
         raise NotImplementedError(
-            "Automatic in-process label generation is currently implemented only for qasper, loogle, narrativeqa, quality, and novelhopqa."
+            "Automatic in-process label generation is currently implemented only for "
+            "qasper, loogle, musique, narrativeqa, quality, and novelhopqa."
         )
 
     qa_entries = _qa_entries_from_run(run_dir)
