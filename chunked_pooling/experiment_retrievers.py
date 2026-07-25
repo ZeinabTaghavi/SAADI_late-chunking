@@ -372,6 +372,7 @@ class DenseRetriever:
         model_inputs = self.tokenizer(
             prompt + text,
             return_tensors="pt",
+            add_special_tokens=True,
             padding=False,
             truncation=False,
         )
@@ -464,6 +465,20 @@ class DenseRetriever:
             max_tokens_per_forward=max_tokens_per_forward,
             window_overlap_tokens=window_overlap_tokens,
         )
+        embedding_token_count = int(token_embeddings.shape[1])
+        invalid_spans = [
+            (int(start), int(end))
+            for start, end in model_token_spans
+            if start < 0 or end <= start or end > embedding_token_count
+        ]
+        if invalid_spans:
+            raise ValueError(
+                "Late-chunk token spans do not match the model embedding sequence: "
+                f"first invalid span={invalid_spans[0]}, "
+                f"embedding_token_count={embedding_token_count}. The chunk mapping "
+                "must use the same tokenizer input and special-token behavior as the "
+                "model forward pass."
+            )
         output_embeddings = chunked_pooling(
             [token_embeddings],
             [list(model_token_spans)],

@@ -438,6 +438,7 @@ def run_late_chunking_experiment(
                         text=str(selected_bundle.documents[doc_id]["text"]),
                         tokenizer=retriever.tokenizer,
                         instruction_token_count=instruction_token_count,
+                        instruction_text=retriever.document_instruction,
                     )
 
                     pooling_start = time.perf_counter()

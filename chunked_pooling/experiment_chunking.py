@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import bisect
 import hashlib
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from chunked_pooling.chunking import Chunker
 
@@ -215,8 +215,20 @@ def char_span_to_token_span(
     char_end: int,
 ) -> Tuple[int, int]:
     start_candidates = [offset[0] for offset in token_offsets]
-    end_candidates = [offset[1] for offset in token_offsets]
+    return _char_span_to_token_span_with_starts(
+        token_offsets=token_offsets,
+        start_candidates=start_candidates,
+        char_start=char_start,
+        char_end=char_end,
+    )
 
+
+def _char_span_to_token_span_with_starts(
+    token_offsets: Sequence[Tuple[int, int]],
+    start_candidates: Sequence[int],
+    char_start: int,
+    char_end: int,
+) -> Tuple[int, int]:
     token_start = bisect.bisect_left(start_candidates, char_start)
     if token_start >= len(token_offsets):
         token_start = len(token_offsets) - 1
@@ -253,11 +265,43 @@ def extend_special_tokens(
     return new_annotations
 
 
+def _model_char_span_to_token_span(
+    content_token_offsets: Sequence[Tuple[int, int]],
+    content_token_indices: Sequence[int],
+    content_start_candidates: Sequence[int],
+    char_start: int,
+    char_end: int,
+) -> Tuple[int, int]:
+    """Map a character span onto tokens while ignoring zero-length special tokens."""
+    if char_end <= char_start:
+        raise ValueError("Character spans must have a positive length.")
+    if not content_token_indices:
+        raise ValueError(
+            f"No tokenizer offsets overlap character span [{char_start}, {char_end})."
+        )
+
+    content_start, content_end = _char_span_to_token_span_with_starts(
+        token_offsets=content_token_offsets,
+        start_candidates=content_start_candidates,
+        char_start=char_start,
+        char_end=char_end,
+    )
+    if content_end <= content_start:
+        raise ValueError(
+            f"No tokenizer offsets overlap character span [{char_start}, {char_end})."
+        )
+    return (
+        int(content_token_indices[content_start]),
+        int(content_token_indices[content_end - 1]) + 1,
+    )
+
+
 def build_encoder_chunk_mappings(
     chunk_records: Sequence[Dict[str, object]],
     text: str,
     tokenizer,
     instruction_token_count: int = 0,
+    instruction_text: Optional[str] = None,
 ) -> Tuple[List[Tuple[int, int]], List[Dict[str, object]], int]:
     tokenization = tokenizer(
         text,
@@ -265,19 +309,70 @@ def build_encoder_chunk_mappings(
         add_special_tokens=False,
     )
     token_offsets = tokenization["offset_mapping"]
+    token_start_candidates = [offset[0] for offset in token_offsets]
 
     encoder_token_spans = []
+    exact_model_token_spans = []
     per_chunk_metadata = []
+    use_exact_model_mapping = (
+        instruction_text is not None or instruction_token_count == 0
+    )
+
+    if use_exact_model_mapping:
+        prompt = instruction_text or ""
+        model_tokenization = tokenizer(
+            prompt + text,
+            return_offsets_mapping=True,
+            add_special_tokens=True,
+            padding=False,
+            truncation=False,
+        )
+        model_token_offsets = model_tokenization["offset_mapping"]
+        model_input_token_count = len(model_tokenization["input_ids"])
+        if len(model_token_offsets) != model_input_token_count:
+            raise ValueError(
+                "Tokenizer returned different input-id and offset-mapping lengths for "
+                "the full model input."
+            )
+        model_content_token_indices = [
+            index
+            for index, (start, end) in enumerate(model_token_offsets)
+            if int(end) > int(start)
+        ]
+        model_content_token_offsets = [
+            model_token_offsets[index] for index in model_content_token_indices
+        ]
+        model_content_start_candidates = [
+            int(offset[0]) for offset in model_content_token_offsets
+        ]
+        document_char_offset = len(prompt)
 
     for chunk in chunk_records:
-        token_start, token_end = char_span_to_token_span(
+        token_start, token_end = _char_span_to_token_span_with_starts(
             token_offsets=token_offsets,
+            start_candidates=token_start_candidates,
             char_start=int(chunk["char_start"]),
             char_end=int(chunk["char_end"]),
         )
         if token_end <= token_start:
             continue
         encoder_token_spans.append((token_start, token_end))
+
+        if use_exact_model_mapping:
+            try:
+                model_start, model_end = _model_char_span_to_token_span(
+                    content_token_offsets=model_content_token_offsets,
+                    content_token_indices=model_content_token_indices,
+                    content_start_candidates=model_content_start_candidates,
+                    char_start=document_char_offset + int(chunk["char_start"]),
+                    char_end=document_char_offset + int(chunk["char_end"]),
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    f"Could not map chunk '{chunk['chunk_id']}' onto the exact model "
+                    "input tokenization."
+                ) from exc
+            exact_model_token_spans.append((model_start, model_end))
 
         pooled_char_start = int(token_offsets[token_start][0])
         pooled_char_end = int(token_offsets[token_end - 1][1])
@@ -299,10 +394,24 @@ def build_encoder_chunk_mappings(
             }
         )
 
-    model_token_spans = extend_special_tokens(
-        encoder_token_spans,
-        n_instruction_tokens=instruction_token_count,
-    )
+    if use_exact_model_mapping:
+        model_token_spans = exact_model_token_spans
+        if model_token_spans:
+            # Preserve the established behavior of pooling the instruction/prefix
+            # with the first chunk and the tokenizer's suffix with the final chunk.
+            _, first_end = model_token_spans[0]
+            last_start, _ = model_token_spans[-1]
+            model_token_spans[0] = (0, first_end)
+            model_token_spans[-1] = (last_start, model_input_token_count)
+    else:
+        # Backward compatibility for callers that only know the instruction-token
+        # count. Internal experiment runs pass instruction_text and use the exact
+        # tokenizer-derived mapping above.
+        model_token_spans = extend_special_tokens(
+            encoder_token_spans,
+            n_instruction_tokens=instruction_token_count,
+        )
+
     for metadata, (model_start, model_end) in zip(per_chunk_metadata, model_token_spans):
         metadata["encoder_model_token_start"] = model_start
         metadata["encoder_model_token_end"] = model_end
