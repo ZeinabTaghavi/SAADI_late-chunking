@@ -84,6 +84,37 @@ python3 tables/generate_qasper_musique_summary.py \
 
 Unlike `late_chunk_runs/`, `late_chunk_evaluations/`, `logs/`, and `tables/late_chunking_mega_table.txt`, these two `docs/` outputs are not ignored. They therefore appear in `git status` and can be committed normally.
 
+### Add 25-Token And 50-Token Overlaps
+
+Use the unified restart-safe launcher to add overlaps 25 and 50 for QASPER and MuSiQue:
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 \
+  bash scripts/run_qasper_musique_c250_overlaps_gpu0123.sh
+```
+
+By default it checks 60 physical configurations. The 20 overlap-0 configurations are verified and skipped when already complete; the 40 new configurations cover overlaps 25 and 50 × 5 retrievers × QASPER plus the three MuSiQue hop subsets. It resumes incomplete dense retrievals from their document checkpoints, skips current evaluations, and appends the full console output to:
+
+```text
+logs/qasper_musique_c250_overlaps_0_25_50.log
+```
+
+The QASPER default remains `QASPER_MAX_DOCS=25`, matching the existing selected-retriever c250 experiment. MuSiQue uses all selected documents. These can be overridden explicitly when needed.
+
+After all configurations succeed, the launcher rebuilds and prints the commit-ready LaTeX table with separate overlap 0, 25, and 50 rows for every retriever. MuSiQue's 2-hop, 3-hop, and 4-hop results remain aggregated into one query-weighted row for each retriever/overlap combination.
+
+To rebuild that multi-overlap table without running retrieval again:
+
+```bash
+python3 tables/generate_qasper_musique_summary.py \
+  --input-root late_chunk_evaluations \
+  --output-tex docs/qasper_musique_c250_retrieval_table.tex \
+  --output-json docs/qasper_musique_c250_retrieval_table.json \
+  --chunk-folders c250_o0 c250_o25 c250_o50 \
+  --print-table \
+  --retrievers jina-v3 qwen contriever bm25 bge-m3
+```
+
 ## Batch QASPER Runs
 
 To evaluate every existing QASPER run you already have for both Jina and Qwen, use:

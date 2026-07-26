@@ -155,6 +155,13 @@ def _chunk_method_label(chunk_folder: str) -> str:
     )
 
 
+def _chunk_identity(chunk_folder: str) -> Tuple[object, object]:
+    match = re.fullmatch(r"c(?P<size>\d+)_o(?P<overlap>\d+)", chunk_folder)
+    if match is None:
+        return chunk_folder, "--"
+    return int(match.group("size")), int(match.group("overlap"))
+
+
 def _relative_source_path(path: Path, input_root: Path) -> str:
     try:
         return str(path.relative_to(input_root))
@@ -183,6 +190,7 @@ def _build_result_row(
         value, count = _mean_metric(combined_rows, metric.key)
         metrics[metric.key] = value
         metric_counts[metric.key] = count
+    chunk_size, overlap = _chunk_identity(chunk_folder)
 
     return {
         "dataset": dataset_key,
@@ -191,6 +199,8 @@ def _build_result_row(
         "retriever_label": RETRIEVER_LABELS.get(retriever, retriever),
         "method": _chunk_method_label(chunk_folder),
         "chunk_folder": chunk_folder,
+        "chunk_size": chunk_size,
+        "overlap": overlap,
         "aggregation": aggregation,
         "n_queries": len(combined_rows),
         "source_query_counts": {
@@ -208,58 +218,78 @@ def _build_result_row(
 def build_report(
     input_root: Path,
     *,
-    chunk_folder: str,
     retrievers: Sequence[str],
+    chunk_folder: Optional[str] = None,
+    chunk_folders: Optional[Sequence[str]] = None,
 ) -> Dict[str, object]:
+    if chunk_folder is not None and chunk_folders is not None:
+        raise ValueError("Pass chunk_folder or chunk_folders, not both")
+    resolved_chunk_folders = tuple(
+        chunk_folders
+        if chunk_folders is not None
+        else (chunk_folder or "c250_o0",)
+    )
+    if not resolved_chunk_folders:
+        raise ValueError("At least one chunk folder is required")
+    if len(set(resolved_chunk_folders)) != len(resolved_chunk_folders):
+        raise ValueError("Chunk folders must be unique")
+
     rows: List[Dict[str, object]] = []
     for retriever in retrievers:
-        qasper_source = _load_evaluation_source(
-            input_root,
-            dataset=QASPER_DATASET,
-            retriever=retriever,
-            chunk_folder=chunk_folder,
-        )
-        rows.append(
-            _build_result_row(
-                dataset_label="QASPER",
-                dataset_key=QASPER_DATASET,
+        for resolved_chunk_folder in resolved_chunk_folders:
+            qasper_source = _load_evaluation_source(
+                input_root,
+                dataset=QASPER_DATASET,
                 retriever=retriever,
-                chunk_folder=chunk_folder,
-                sources=(qasper_source,),
-                input_root=input_root,
-                aggregation="per-query mean",
+                chunk_folder=resolved_chunk_folder,
             )
-        )
+            rows.append(
+                _build_result_row(
+                    dataset_label="QASPER",
+                    dataset_key=QASPER_DATASET,
+                    retriever=retriever,
+                    chunk_folder=resolved_chunk_folder,
+                    sources=(qasper_source,),
+                    input_root=input_root,
+                    aggregation="per-query mean",
+                )
+            )
 
     for retriever in retrievers:
-        musique_sources = tuple(
-            _load_evaluation_source(
-                input_root,
-                dataset=dataset,
-                retriever=retriever,
-                chunk_folder=chunk_folder,
+        for resolved_chunk_folder in resolved_chunk_folders:
+            musique_sources = tuple(
+                _load_evaluation_source(
+                    input_root,
+                    dataset=dataset,
+                    retriever=retriever,
+                    chunk_folder=resolved_chunk_folder,
+                )
+                for dataset in MUSIQUE_DATASETS
             )
-            for dataset in MUSIQUE_DATASETS
-        )
-        rows.append(
-            _build_result_row(
-                dataset_label="MuSiQue (2–4 Hop Aggregate)",
-                dataset_key="musique",
-                retriever=retriever,
-                chunk_folder=chunk_folder,
-                sources=musique_sources,
-                input_root=input_root,
-                aggregation=(
-                    "micro-average over available per-query metric values "
-                    "from musique_2hop, musique_3hop, and musique_4hop"
-                ),
+            rows.append(
+                _build_result_row(
+                    dataset_label="MuSiQue (2–4 Hop Aggregate)",
+                    dataset_key="musique",
+                    retriever=retriever,
+                    chunk_folder=resolved_chunk_folder,
+                    sources=musique_sources,
+                    input_root=input_root,
+                    aggregation=(
+                        "micro-average over available per-query metric values "
+                        "from musique_2hop, musique_3hop, and musique_4hop"
+                    ),
+                )
             )
-        )
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "report": "QASPER and aggregated MuSiQue late-chunking retrieval",
-        "chunk_folder": chunk_folder,
+        "chunk_folder": (
+            resolved_chunk_folders[0]
+            if len(resolved_chunk_folders) == 1
+            else None
+        ),
+        "chunk_folders": list(resolved_chunk_folders),
         "retrievers": list(retrievers),
         "aggregation_notes": [
             (
@@ -310,6 +340,7 @@ def build_latex_table(report: Dict[str, object]) -> str:
 
     lines = [
         "% Auto-generated by tables/generate_qasper_musique_summary.py",
+        "% Requires: \\usepackage{booktabs,graphicx}",
         (
             "% MuSiQue is a query-weighted micro-average over the 2-hop, "
             "3-hop, and 4-hop per-query metrics."
@@ -323,20 +354,20 @@ def build_latex_table(report: Dict[str, object]) -> str:
         (
             r"\caption{QASPER and MuSiQue late-chunking retrieval results. "
             r"MuSiQue combines 2-hop, 3-hop, and 4-hop queries into one "
-            r"query-weighted row per retriever. Values are percentages.}"
+            r"query-weighted row per retriever and overlap. Values are percentages.}"
         ),
         r"\label{tab:qasper-musique-c250-retrieval}",
         r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{llrlrrrrrrrrrrrr}",
+        r"\begin{tabular}{llrrrrrrrrrrrrrrr}",
         r"\toprule",
         (
-            r"Dataset & Retriever & N & Method & "
+            r"Dataset & Retriever & Chunk Size & Overlap & N & "
             r"\multicolumn{6}{c}{Ranking Metrics} & "
             r"\multicolumn{6}{c}{Binary Metrics} \\"
         ),
-        r"\cmidrule(lr){5-10}\cmidrule(lr){11-16}",
+        r"\cmidrule(lr){6-11}\cmidrule(lr){12-17}",
         (
-            r"& & & & \multicolumn{2}{c}{Gold} & "
+            r"& & & & & \multicolumn{2}{c}{Gold} & "
             r"\multicolumn{2}{c}{Silver-L} & "
             r"\multicolumn{2}{c}{Union-L} & "
             r"\multicolumn{2}{c}{Gold} & "
@@ -344,7 +375,7 @@ def build_latex_table(report: Dict[str, object]) -> str:
             r"\multicolumn{2}{c}{Union-S} \\"
         ),
         (
-            r"& & & & NDCG@10 & Recall@10 & NDCG@10 & Recall@10 & "
+            r"& & & & & NDCG@10 & Recall@10 & NDCG@10 & Recall@10 & "
             r"NDCG@10 & Recall@10 & HR@5 & HR@10 & HR@5 & HR@10 & "
             r"HR@5 & HR@10 \\"
         ),
@@ -365,8 +396,9 @@ def build_latex_table(report: Dict[str, object]) -> str:
         cells = [
             _latex_escape(display_dataset),
             _latex_escape(str(raw_row.get("retriever_label") or "")),
+            _latex_escape(str(raw_row.get("chunk_size") or "")),
+            _latex_escape(str(raw_row.get("overlap") or "0")),
             str(int(raw_row.get("n_queries") or 0)),
-            _latex_escape(str(raw_row.get("method") or "")),
         ]
         cells.extend(_format_metric(metrics.get(metric.key)) for metric in ALL_METRICS)
         lines.append(" & ".join(cells) + r" \\")
@@ -422,10 +454,17 @@ def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
         default=None,
         help="JSON audit output path (default: output-tex with .json suffix).",
     )
-    parser.add_argument(
+    chunk_group = parser.add_mutually_exclusive_group()
+    chunk_group.add_argument(
         "--chunk-folder",
-        default="c250_o0",
-        help="Run folder to summarize, such as c250_o0.",
+        default=None,
+        help="One run folder to summarize, such as c250_o0.",
+    )
+    chunk_group.add_argument(
+        "--chunk-folders",
+        nargs="+",
+        default=None,
+        help="Run folders to summarize in table order.",
     )
     parser.add_argument(
         "--retrievers",
@@ -454,6 +493,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     report = build_report(
         input_root,
         chunk_folder=args.chunk_folder,
+        chunk_folders=args.chunk_folders,
         retrievers=args.retrievers,
     )
     latex = build_latex_table(report)

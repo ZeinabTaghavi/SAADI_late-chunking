@@ -63,14 +63,35 @@ def _write_evaluation(
     )
 
 
-def _complete_inputs(root: Path) -> None:
-    _write_evaluation(root, dataset="qasper", values=[0.2, 0.4])
-    _write_evaluation(root, dataset="musique_2hop", values=[0.1])
-    _write_evaluation(root, dataset="musique_3hop", values=[0.2, 0.4])
+def _complete_inputs(
+    root: Path,
+    *,
+    chunk_folder: str = "c250_o0",
+    value_offset: float = 0.0,
+) -> None:
+    _write_evaluation(
+        root,
+        dataset="qasper",
+        values=[0.2 + value_offset, 0.4 + value_offset],
+        chunk_folder=chunk_folder,
+    )
+    _write_evaluation(
+        root,
+        dataset="musique_2hop",
+        values=[0.1 + value_offset],
+        chunk_folder=chunk_folder,
+    )
+    _write_evaluation(
+        root,
+        dataset="musique_3hop",
+        values=[0.2 + value_offset, 0.4 + value_offset],
+        chunk_folder=chunk_folder,
+    )
     _write_evaluation(
         root,
         dataset="musique_4hop",
-        values=[0.9],
+        values=[0.9 + value_offset],
+        chunk_folder=chunk_folder,
         null_first_recall=True,
     )
 
@@ -109,7 +130,63 @@ def test_musique_is_one_query_weighted_row_per_retriever(tmp_path: Path):
     assert "MuSiQue-2hop" not in latex
     assert "MuSiQue-3hop" not in latex
     assert "MuSiQue-4hop" not in latex
-    assert " & 4 & Late Chunking (250/0) & 40.0" in latex
+    assert " & 250 & 0 & 4 & 40.0" in latex
+
+
+def test_multiple_overlaps_are_separate_rows_but_hops_stay_aggregated(
+    tmp_path: Path,
+):
+    evaluation_root = tmp_path / "late_chunk_evaluations"
+    _complete_inputs(evaluation_root, chunk_folder="c250_o25")
+    _complete_inputs(
+        evaluation_root,
+        chunk_folder="c250_o50",
+        value_offset=0.05,
+    )
+
+    report = summary_generator.build_report(
+        evaluation_root,
+        chunk_folders=["c250_o25", "c250_o50"],
+        retrievers=["qwen"],
+    )
+
+    assert [
+        (row["dataset"], row["overlap"])
+        for row in report["rows"]
+    ] == [
+        ("qasper", 25),
+        ("qasper", 50),
+        ("musique", 25),
+        ("musique", 50),
+    ]
+    assert report["rows"][2]["n_queries"] == 4
+    assert report["rows"][3]["n_queries"] == 4
+    latex = summary_generator.build_latex_table(report)
+    assert latex.count("MuSiQue (2--4 Hop Aggregate) &") == 1
+    assert " & Qwen & 250 & 25 & 4 & 40.0" in latex
+    assert " & Qwen & 250 & 50 & 4 & 45.0" in latex
+
+    output_tex = tmp_path / "docs" / "multi_overlap.tex"
+    output_json = tmp_path / "docs" / "multi_overlap.json"
+    result = summary_generator.main(
+        [
+            "--input-root",
+            str(evaluation_root),
+            "--output-tex",
+            str(output_tex),
+            "--output-json",
+            str(output_json),
+            "--chunk-folders",
+            "c250_o25",
+            "c250_o50",
+            "--retrievers",
+            "qwen",
+        ]
+    )
+    assert result == 0
+    audit = json.loads(output_json.read_text(encoding="utf-8"))
+    assert audit["chunk_folders"] == ["c250_o25", "c250_o50"]
+    assert len(audit["rows"]) == 4
 
 
 def test_main_writes_commit_ready_tex_and_json(tmp_path: Path):
