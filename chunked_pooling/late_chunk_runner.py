@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -50,6 +51,52 @@ def _write_jsonl(path: Path, rows: Iterable[Dict[str, object]]) -> None:
             handle.write("\n")
 
 
+def _temporary_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.{os.getpid()}.tmp")
+
+
+def _atomic_write_json(path: Path, payload) -> None:
+    _ensure_directory(path.parent)
+    temporary_path = _temporary_path(path)
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False, sort_keys=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def _atomic_write_jsonl(path: Path, rows: Iterable[Dict[str, object]]) -> None:
+    _ensure_directory(path.parent)
+    temporary_path = _temporary_path(path)
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as handle:
+            for row in rows:
+                handle.write(json.dumps(row, ensure_ascii=False, sort_keys=False))
+                handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+def _atomic_save_numpy(path: Path, matrix: np.ndarray) -> None:
+    _ensure_directory(path.parent)
+    temporary_path = _temporary_path(path)
+    try:
+        with open(temporary_path, "wb") as handle:
+            np.save(handle, matrix)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
 def _read_json(path: Path):
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -68,6 +115,57 @@ def _read_jsonl(path: Path) -> List[Dict[str, object]]:
 def _write_yaml(path: Path, payload) -> None:
     with open(path, "w", encoding="utf-8") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False, allow_unicode=True)
+
+
+def _document_checkpoint_paths(
+    checkpoint_dir: Path,
+    doc_position: int,
+    doc_id: str,
+) -> Tuple[Path, Path]:
+    digest = hashlib.sha1(doc_id.encode("utf-8")).hexdigest()[:12]
+    stem = f"{doc_position:05d}__{digest}"
+    return checkpoint_dir / f"{stem}.npy", checkpoint_dir / f"{stem}.json"
+
+
+def _load_document_embedding_checkpoint(
+    matrix_path: Path,
+    metadata_path: Path,
+    expected_metadata: Dict[str, object],
+) -> Optional[Tuple[np.ndarray, Dict[str, object]]]:
+    if not matrix_path.is_file() or not metadata_path.is_file():
+        return None
+    try:
+        metadata = _read_json(metadata_path)
+        if not isinstance(metadata, dict):
+            return None
+        for key, expected_value in expected_metadata.items():
+            if metadata.get(key) != expected_value:
+                return None
+
+        matrix = np.load(matrix_path, allow_pickle=False)
+        expected_shape = metadata.get("matrix_shape")
+        if (
+            matrix.ndim != 2
+            or matrix.shape[0] != len(expected_metadata["chunk_ids"])
+            or expected_shape != list(matrix.shape)
+        ):
+            return None
+        return matrix, metadata
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def _replace_profile_row(
+    rows: List[Dict[str, object]],
+    new_row: Dict[str, object],
+    identity_keys: Sequence[str],
+) -> None:
+    rows[:] = [
+        row
+        for row in rows
+        if any(row.get(key) != new_row.get(key) for key in identity_keys)
+    ]
+    rows.append(new_row)
 
 
 def _ru_maxrss_mb() -> float:
@@ -373,11 +471,6 @@ def run_late_chunking_experiment(
         peak_cpu_memory_mb = None
         peak_gpu_memory_mb = None
 
-        document_encoding_rows = [
-            row
-            for row in document_encoding_rows
-            if row.get("retriever_name") != retriever_name
-        ]
         index_build_rows = [
             row for row in index_build_rows if row.get("retriever_name") != retriever_name
         ]
@@ -385,7 +478,7 @@ def run_late_chunking_experiment(
             row
             for row in resource_usage_rows
             if row.get("retriever_name") != retriever_name
-            or row.get("phase") not in {"document_encoding", "index_build", "query_retrieval"}
+            or row.get("phase") not in {"index_build", "query_retrieval"}
         ]
 
         if retriever_config["type"] == "bm25":
@@ -410,98 +503,232 @@ def run_late_chunking_experiment(
             retriever = DenseRetriever.from_config(retriever_config)
             dense_matrix_file = retriever_dir / "chunk_embeddings.npy"
             dense_chunk_ids_file = retriever_dir / "chunk_ids.json"
+            document_checkpoint_dir = retriever_dir / "document_checkpoints"
+            _ensure_directory(document_checkpoint_dir)
             dense_indexes[retriever_name] = {}
-            reused_dense_index = resume and dense_matrix_file.exists() and dense_chunk_ids_file.exists()
             requested_max_tokens_per_forward = resolved_config["late_chunking"].get(
                 "max_tokens_per_forward"
             )
             effective_max_tokens_per_forward = retriever.effective_max_tokens_per_forward(
                 requested_max_tokens_per_forward
             )
+            window_overlap_tokens = int(
+                resolved_config["late_chunking"].get("window_overlap_tokens") or 0
+            )
+
+            reused_dense_index = False
+            embedding_matrix = None
+            if resume and dense_matrix_file.is_file() and dense_chunk_ids_file.is_file():
+                try:
+                    stored_chunk_ids = _read_json(dense_chunk_ids_file)
+                    stored_matrix = np.load(dense_matrix_file, allow_pickle=False)
+                    if (
+                        stored_chunk_ids == chunk_ids
+                        and stored_matrix.ndim == 2
+                        and stored_matrix.shape[0] == len(chunk_ids)
+                    ):
+                        embedding_matrix = stored_matrix
+                        reused_dense_index = True
+                        print(
+                            f"[indexing] {dataset_name}/{retriever_name}: reusing "
+                            f"completed dense index with {len(chunk_ids)} chunks",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            f"[indexing] {dataset_name}/{retriever_name}: existing dense "
+                            "index is incomplete or stale; rebuilding from document "
+                            "checkpoints",
+                            flush=True,
+                        )
+                except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                    print(
+                        f"[indexing] {dataset_name}/{retriever_name}: existing dense "
+                        "index could not be validated; rebuilding from document "
+                        "checkpoints",
+                        flush=True,
+                    )
 
             if reused_dense_index:
-                embedding_matrix = np.load(dense_matrix_file)
-                stored_chunk_ids = _read_json(dense_chunk_ids_file)
-                if stored_chunk_ids != chunk_ids:
-                    raise ValueError(
-                        f"Stored chunk_ids for retriever '{retriever_name}' do not match "
-                        "the current chunk order."
-                    )
                 build_time_ms = 0.0
             else:
                 vectors = []
                 instruction_token_count = retriever.document_instruction_token_count()
-                for doc_id in selected_doc_ids:
-                    doc_start = time.perf_counter()
-                    model_token_spans, per_chunk_metadata, encoder_token_count = build_encoder_chunk_mappings(
-                        chunk_records=chunks_by_doc[doc_id],
-                        text=str(selected_bundle.documents[doc_id]["text"]),
-                        tokenizer=retriever.tokenizer,
-                        instruction_token_count=instruction_token_count,
-                        instruction_text=retriever.document_instruction,
-                    )
-
-                    pooling_start = time.perf_counter()
-                    doc_vectors, window_metadata = retriever.encode_late_chunks(
-                        text=str(selected_bundle.documents[doc_id]["text"]),
-                        model_token_spans=model_token_spans,
-                        max_tokens_per_forward=effective_max_tokens_per_forward,
-                        window_overlap_tokens=int(
-                            resolved_config["late_chunking"].get("window_overlap_tokens") or 0
-                        ),
-                    )
-                    pooling_time_ms = (time.perf_counter() - pooling_start) * 1000.0
-                    document_time_ms = (time.perf_counter() - doc_start) * 1000.0
-
-                    vectors.append(doc_vectors)
-                    document_encoding_rows.append(
-                        {
-                            "doc_id": doc_id,
-                            "retriever_name": retriever_name,
-                            "document_encoding_time_ms": round(document_time_ms, 4),
-                            "late_chunk_pooling_time_ms": round(pooling_time_ms, 4),
-                        }
-                    )
-                    resource_usage_rows.append(
-                        _resource_usage_record(
-                            phase="document_encoding",
+                total_documents = len(selected_doc_ids)
+                for doc_position, doc_id in enumerate(selected_doc_ids):
+                    doc_chunk_ids = [
+                        str(chunk["chunk_id"]) for chunk in chunks_by_doc[doc_id]
+                    ]
+                    checkpoint_matrix_path, checkpoint_metadata_path = (
+                        _document_checkpoint_paths(
+                            checkpoint_dir=document_checkpoint_dir,
+                            doc_position=doc_position,
                             doc_id=doc_id,
-                            retriever_name=retriever_name,
                         )
                     )
-                    encoder_payload = {
+                    expected_checkpoint_metadata = {
+                        "schema_version": 1,
                         "doc_id": doc_id,
-                        "encoder_model": retriever.model_name,
+                        "retriever_name": retriever_name,
+                        "model_name": retriever.model_name,
                         "tokenizer_name": retriever.tokenizer_name,
-                        "full_document_token_count": encoder_token_count,
-                        "requested_max_tokens_per_forward": requested_max_tokens_per_forward,
-                        "max_tokens_per_forward": window_metadata[
-                            "effective_max_tokens_per_forward"
-                        ],
-                        "segmentation_or_windowing_strategy": window_metadata[
-                            "segmentation_or_windowing_strategy"
-                        ],
-                        "stride_or_overlap_tokens": int(
-                            resolved_config["late_chunking"].get("window_overlap_tokens") or 0
-                        ),
+                        "pooling": retriever.pooling,
+                        "normalize": retriever.normalize,
+                        "chunking_signature": chunking_signature,
+                        "chunk_ids": doc_chunk_ids,
                         "instruction_prefix": retriever.document_instruction,
-                        "instruction_token_count": instruction_token_count,
-                        "full_model_input_token_count": window_metadata[
-                            "full_model_input_token_count"
-                        ],
-                        "encoder_windows": window_metadata["encoder_windows"],
-                        "chunk_pooling_map": per_chunk_metadata,
+                        "effective_max_tokens_per_forward": (
+                            effective_max_tokens_per_forward
+                        ),
+                        "window_overlap_tokens": window_overlap_tokens,
                     }
-                    _update_encoding_map_file(
-                        run_dir=run_dir,
-                        doc_id=doc_id,
-                        retriever_name=retriever_name,
-                        encoder_payload=encoder_payload,
+                    checkpoint = (
+                        _load_document_embedding_checkpoint(
+                            matrix_path=checkpoint_matrix_path,
+                            metadata_path=checkpoint_metadata_path,
+                            expected_metadata=expected_checkpoint_metadata,
+                        )
+                        if resume
+                        else None
                     )
 
+                    if checkpoint is not None:
+                        doc_vectors, checkpoint_metadata = checkpoint
+                        document_time_ms = float(
+                            checkpoint_metadata["document_encoding_time_ms"]
+                        )
+                        pooling_time_ms = float(
+                            checkpoint_metadata["late_chunk_pooling_time_ms"]
+                        )
+                        checkpoint_reused = True
+                        print(
+                            f"[indexing] {dataset_name}/{retriever_name}: document "
+                            f"{doc_position + 1}/{total_documents} {doc_id} reused",
+                            flush=True,
+                        )
+                    else:
+                        print(
+                            f"[indexing] {dataset_name}/{retriever_name}: document "
+                            f"{doc_position + 1}/{total_documents} {doc_id} encoding",
+                            flush=True,
+                        )
+                        doc_start = time.perf_counter()
+                        (
+                            model_token_spans,
+                            per_chunk_metadata,
+                            encoder_token_count,
+                        ) = build_encoder_chunk_mappings(
+                            chunk_records=chunks_by_doc[doc_id],
+                            text=str(selected_bundle.documents[doc_id]["text"]),
+                            tokenizer=retriever.tokenizer,
+                            instruction_token_count=instruction_token_count,
+                            instruction_text=retriever.document_instruction,
+                        )
+
+                        pooling_start = time.perf_counter()
+                        doc_vectors, window_metadata = retriever.encode_late_chunks(
+                            text=str(selected_bundle.documents[doc_id]["text"]),
+                            model_token_spans=model_token_spans,
+                            max_tokens_per_forward=effective_max_tokens_per_forward,
+                            window_overlap_tokens=window_overlap_tokens,
+                        )
+                        pooling_time_ms = (
+                            time.perf_counter() - pooling_start
+                        ) * 1000.0
+                        document_time_ms = (
+                            time.perf_counter() - doc_start
+                        ) * 1000.0
+                        if doc_vectors.shape[0] != len(doc_chunk_ids):
+                            raise ValueError(
+                                f"Retriever '{retriever_name}' produced "
+                                f"{doc_vectors.shape[0]} embeddings for document "
+                                f"'{doc_id}', but {len(doc_chunk_ids)} chunks were "
+                                "expected."
+                            )
+
+                        encoder_payload = {
+                            "doc_id": doc_id,
+                            "encoder_model": retriever.model_name,
+                            "tokenizer_name": retriever.tokenizer_name,
+                            "full_document_token_count": encoder_token_count,
+                            "requested_max_tokens_per_forward": (
+                                requested_max_tokens_per_forward
+                            ),
+                            "max_tokens_per_forward": window_metadata[
+                                "effective_max_tokens_per_forward"
+                            ],
+                            "segmentation_or_windowing_strategy": window_metadata[
+                                "segmentation_or_windowing_strategy"
+                            ],
+                            "stride_or_overlap_tokens": window_overlap_tokens,
+                            "instruction_prefix": retriever.document_instruction,
+                            "instruction_token_count": instruction_token_count,
+                            "full_model_input_token_count": window_metadata[
+                                "full_model_input_token_count"
+                            ],
+                            "encoder_windows": window_metadata["encoder_windows"],
+                            "chunk_pooling_map": per_chunk_metadata,
+                        }
+                        _update_encoding_map_file(
+                            run_dir=run_dir,
+                            doc_id=doc_id,
+                            retriever_name=retriever_name,
+                            encoder_payload=encoder_payload,
+                        )
+                        checkpoint_metadata = {
+                            **expected_checkpoint_metadata,
+                            "matrix_shape": list(doc_vectors.shape),
+                            "document_encoding_time_ms": round(
+                                document_time_ms, 4
+                            ),
+                            "late_chunk_pooling_time_ms": round(
+                                pooling_time_ms, 4
+                            ),
+                        }
+                        _atomic_save_numpy(checkpoint_matrix_path, doc_vectors)
+                        _atomic_write_json(
+                            checkpoint_metadata_path, checkpoint_metadata
+                        )
+                        checkpoint_reused = False
+                        print(
+                            f"[indexing] {dataset_name}/{retriever_name}: document "
+                            f"{doc_position + 1}/{total_documents} {doc_id} "
+                            "checkpoint saved",
+                            flush=True,
+                        )
+
+                    vectors.append(doc_vectors)
+                    encoding_row = {
+                        "doc_id": doc_id,
+                        "retriever_name": retriever_name,
+                        "document_encoding_time_ms": round(document_time_ms, 4),
+                        "late_chunk_pooling_time_ms": round(pooling_time_ms, 4),
+                        "checkpoint_reused": checkpoint_reused,
+                    }
+                    _replace_profile_row(
+                        document_encoding_rows,
+                        encoding_row,
+                        identity_keys=("doc_id", "retriever_name"),
+                    )
+                    resource_row = _resource_usage_record(
+                        phase="document_encoding",
+                        doc_id=doc_id,
+                        retriever_name=retriever_name,
+                    )
+                    resource_row["checkpoint_reused"] = checkpoint_reused
+                    _replace_profile_row(
+                        resource_usage_rows,
+                        resource_row,
+                        identity_keys=("phase", "doc_id", "retriever_name"),
+                    )
+                    _atomic_write_jsonl(
+                        document_encoding_path, document_encoding_rows
+                    )
+                    _atomic_write_jsonl(resource_usage_path, resource_usage_rows)
+
                 embedding_matrix = np.vstack(vectors) if vectors else np.zeros((0, 0))
-                np.save(dense_matrix_file, embedding_matrix)
-                _write_json(dense_chunk_ids_file, chunk_ids)
+                _atomic_save_numpy(dense_matrix_file, embedding_matrix)
+                _atomic_write_json(dense_chunk_ids_file, chunk_ids)
                 build_time_ms = (time.perf_counter() - build_start) * 1000.0
 
             dense_indexes[retriever_name]["retriever"] = retriever
@@ -524,7 +751,7 @@ def run_late_chunking_experiment(
                 "peak_gpu_memory_mb": None if peak_gpu_memory_mb is None else round(peak_gpu_memory_mb, 4),
             }
 
-        _write_json(index_stats_path, index_stats)
+        _atomic_write_json(index_stats_path, index_stats)
         index_build_rows.append(
             {
                 "retriever_name": retriever_name,
@@ -549,9 +776,9 @@ def run_late_chunking_experiment(
             }
         )
 
-    _write_json(indexing_dir / "index_manifest.json", index_manifest)
-    _write_jsonl(document_encoding_path, document_encoding_rows)
-    _write_jsonl(index_build_path, index_build_rows)
+    _atomic_write_json(indexing_dir / "index_manifest.json", index_manifest)
+    _atomic_write_jsonl(document_encoding_path, document_encoding_rows)
+    _atomic_write_jsonl(index_build_path, index_build_rows)
 
     artifact_paths = {
         "default_experiment_yaml": _relative_path(config_dir / "default_experiment.yaml", run_dir),
@@ -685,9 +912,9 @@ def run_late_chunking_experiment(
                 }
             )
 
-        _write_jsonl(payload_path, retrieval_payload_rows)
-        _write_json(raw_results_path, raw_result_rows)
-        _write_jsonl(query_times_path, query_time_rows)
+        _atomic_write_jsonl(payload_path, retrieval_payload_rows)
+        _atomic_write_json(raw_results_path, raw_result_rows)
+        _atomic_write_jsonl(query_times_path, query_time_rows)
 
         artifact_paths[f"retrieval_payloads_{retriever_name}"] = _relative_path(
             payload_path, run_dir
@@ -699,7 +926,7 @@ def run_late_chunking_experiment(
             query_times_path, run_dir
         )
 
-    _write_jsonl(resource_usage_path, resource_usage_rows)
+    _atomic_write_jsonl(resource_usage_path, resource_usage_rows)
     artifact_paths["resource_usage_jsonl"] = _relative_path(
         resource_usage_path,
         run_dir,
@@ -738,5 +965,5 @@ def run_late_chunking_experiment(
             "Multi-retriever encoding_map.json files store retriever-specific pooling spans under chunking/<doc_id>/encoding_map.json -> encoders.<retriever_name>.",
         ],
     }
-    _write_json(run_dir / "run_manifest.json", run_manifest)
+    _atomic_write_json(run_dir / "run_manifest.json", run_manifest)
     return run_dir

@@ -2,6 +2,9 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
+import pytest
+
 from chunked_pooling.experiment_chunking import build_chunk_records, make_chunking_signature
 from chunked_pooling.experiment_config import (
     load_yaml_file,
@@ -198,3 +201,165 @@ retrieval:
     run_manifest = json.loads((run_dir / "run_manifest.json").read_text())
     assert run_manifest["selected_documents_count"] == 2
     assert "No gold labels" in " ".join(run_manifest["notes"])
+
+
+class FakeDenseRetriever:
+    name = "fake"
+    model_name = "fake-model"
+    tokenizer_name = "fake-tokenizer"
+    pooling = "mean"
+    normalize = True
+    distance_metric = "cosine"
+    document_instruction = ""
+
+    def __init__(self, fail_on_text=None):
+        self.fail_on_text = fail_on_text
+        self.encoded_documents = []
+        self.tokenizer = SimpleTokenizer()
+
+    def document_instruction_token_count(self):
+        return 0
+
+    def effective_max_tokens_per_forward(self, requested):
+        return int(requested or 512)
+
+    def encode_late_chunks(
+        self,
+        text,
+        model_token_spans,
+        max_tokens_per_forward,
+        window_overlap_tokens,
+    ):
+        self.encoded_documents.append(text)
+        if self.fail_on_text and self.fail_on_text in text:
+            raise RuntimeError("intentional interruption")
+        vectors = np.ones((len(model_token_spans), 2), dtype=np.float32)
+        return vectors, {
+            "effective_max_tokens_per_forward": max_tokens_per_forward,
+            "segmentation_or_windowing_strategy": "single_forward",
+            "full_model_input_token_count": len(text.split()),
+            "encoder_windows": [],
+        }
+
+    def encode_queries(self, texts):
+        return np.ones((len(texts), 2), dtype=np.float32)
+
+
+def test_dense_resume_reuses_completed_document_checkpoints(tmp_path, monkeypatch):
+    documents_path = tmp_path / "documents.jsonl"
+    qa_path = tmp_path / "qa.json"
+    yaml_path = tmp_path / "default_experiment.yaml"
+    _write_jsonl(
+        documents_path,
+        [
+            {"doc_id": "doc-1", "text": "Berlin is the capital of Germany."},
+            {"doc_id": "doc-2", "text": "Lucerne is a city in Switzerland."},
+        ],
+    )
+    qa_path.write_text(
+        json.dumps(
+            [
+                {
+                    "query_id": "q1",
+                    "doc_id": "doc-1",
+                    "question": "What is Germany's capital?",
+                },
+                {
+                    "query_id": "q2",
+                    "doc_id": "doc-2",
+                    "question": "Which Swiss city is mentioned?",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    yaml_path.write_text(
+        f"""
+dataset_loader:
+  type: local_json
+  local_json:
+    documents_path: {documents_path}
+    qa_path: {qa_path}
+chunking:
+  strategy: fixed
+  chunk_size: 4
+  overlap: 0
+  tokenizer_name: simple-tokenizer
+retrieval:
+  scope: per_document
+  retrieve_k: 2
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "chunked_pooling.late_chunk_runner.load_tokenizer",
+        lambda *args, **kwargs: SimpleTokenizer(),
+    )
+
+    default_experiment = load_yaml_file(str(yaml_path))
+    retrievers = parse_retriever_specs(
+        [
+            "name=fake,type=dense,model_name=fake-model,"
+            "tokenizer_name=fake-tokenizer,normalize=true"
+        ],
+        default_experiment,
+    )
+    output_root = tmp_path / "late_chunk_runs"
+    interrupted_retriever = FakeDenseRetriever(fail_on_text="Lucerne")
+    monkeypatch.setattr(
+        "chunked_pooling.late_chunk_runner.DenseRetriever.from_config",
+        lambda *_args, **_kwargs: interrupted_retriever,
+    )
+    interrupted_config, interrupted_notes = resolve_run_config(
+        dataset_name="local_qa",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        run_name_override="fake/c4_o0",
+        output_root_override=str(output_root),
+        resume=True,
+    )
+
+    with pytest.raises(RuntimeError, match="intentional interruption"):
+        run_late_chunking_experiment(
+            resolved_config=interrupted_config,
+            default_experiment_path=str(yaml_path),
+            notes=interrupted_notes,
+        )
+
+    checkpoint_dir = (
+        output_root
+        / "local_qa"
+        / "fake"
+        / "c4_o0"
+        / "indexing"
+        / "fake"
+        / "document_checkpoints"
+    )
+    assert len(list(checkpoint_dir.glob("*.json"))) == 1
+    assert len(interrupted_retriever.encoded_documents) == 2
+
+    resumed_retriever = FakeDenseRetriever()
+    monkeypatch.setattr(
+        "chunked_pooling.late_chunk_runner.DenseRetriever.from_config",
+        lambda *_args, **_kwargs: resumed_retriever,
+    )
+    resumed_config, resumed_notes = resolve_run_config(
+        dataset_name="local_qa",
+        default_experiment=default_experiment,
+        retrievers=retrievers,
+        run_name_override="fake/c4_o0",
+        output_root_override=str(output_root),
+        resume=True,
+    )
+    run_dir = run_late_chunking_experiment(
+        resolved_config=resumed_config,
+        default_experiment_path=str(yaml_path),
+        notes=resumed_notes,
+    )
+
+    assert resumed_retriever.encoded_documents == [
+        "Lucerne is a city in Switzerland."
+    ]
+    assert len(list(checkpoint_dir.glob("*.json"))) == 2
+    assert (run_dir / "indexing" / "fake" / "chunk_embeddings.npy").is_file()
+    assert (run_dir / "run_manifest.json").is_file()

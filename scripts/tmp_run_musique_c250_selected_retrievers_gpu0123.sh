@@ -24,7 +24,10 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 DATASETS="${DATASETS:-musique_2hop musique_3hop musique_4hop}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-late_chunk_runs}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-${PROJECT_ROOT}/late_chunk_runs}"
+EVALUATION_ROOT="${EVALUATION_ROOT:-${PROJECT_ROOT}/late_chunk_evaluations}"
+LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
+TABLE_OUTPUT="${TABLE_OUTPUT:-${PROJECT_ROOT}/tables/late_chunking_mega_table.txt}"
 CHUNK_SIZE="${CHUNK_SIZE:-250}"
 CHUNK_OVERLAP="${CHUNK_OVERLAP:-0}"
 CHUNK_TOKENIZER_NAME="${CHUNK_TOKENIZER_NAME:-jinaai/jina-embeddings-v2-small-en}"
@@ -37,6 +40,21 @@ LATE_WINDOW_OVERLAP_TOKENS="${LATE_WINDOW_OVERLAP_TOKENS:-256}"
 RESUME="${RESUME:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 STOP_ON_ERROR="${STOP_ON_ERROR:-1}"
+RUN_EVALUATION="${RUN_EVALUATION:-1}"
+GENERATE_TABLE="${GENERATE_TABLE:-1}"
+KS="${KS:-5 10}"
+
+mkdir -p "${OUTPUT_ROOT}" "${EVALUATION_ROOT}" "${LOG_DIR}" \
+  "$(dirname -- "${TABLE_OUTPUT}")"
+MASTER_LOG="${LOG_DIR}/musique_c${CHUNK_SIZE}_o${CHUNK_OVERLAP}_selected_retrievers.log"
+if [[ "${MUSIQUE_LOG_ACTIVE:-0}" != "1" ]]; then
+  export MUSIQUE_LOG_ACTIVE=1
+  set +e
+  bash "$0" "$@" 2>&1 | tee -a "${MASTER_LOG}"
+  script_status="${PIPESTATUS[0]}"
+  exit "${script_status}"
+fi
+printf '\n===== MuSiQue resume session %s =====\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
 
 dataset_config_path() {
   case "$1" in
@@ -56,6 +74,7 @@ dataset_config_path() {
 }
 
 IFS=' ' read -r -a dataset_array <<< "${DATASETS}"
+IFS=' ' read -r -a k_array <<< "${KS}"
 
 retriever_names=(
   "jina-v3"
@@ -124,6 +143,12 @@ printf '  CHUNK_SIZE=%s\n' "${CHUNK_SIZE}"
 printf '  CHUNK_OVERLAP=%s\n' "${CHUNK_OVERLAP}"
 printf '  CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES}"
 printf '  OUTPUT_ROOT=%s\n' "${OUTPUT_ROOT}"
+printf '  EVALUATION_ROOT=%s\n' "${EVALUATION_ROOT}"
+printf '  LOG=%s\n' "${MASTER_LOG}"
+printf '  TABLE_OUTPUT=%s\n' "${TABLE_OUTPUT}"
+printf '  RUN_EVALUATION=%s\n' "${RUN_EVALUATION}"
+printf '  GENERATE_TABLE=%s\n' "${GENERATE_TABLE}"
+printf '  KS=%s\n' "${KS}"
 printf '  HF_HOME=%s\n' "${HF_HOME}"
 printf '  HF_TOKEN_PATH=%s\n' "${HF_TOKEN_PATH}"
 printf '  HF_TOKEN=%s\n' "${HF_TOKEN_STATUS}"
@@ -135,6 +160,10 @@ for dataset_name in "${dataset_array[@]}"; do
     retriever_name="${retriever_names[$idx]}"
     retriever_spec="${retriever_specs[$idx]}"
     run_name="${retriever_name}/${chunk_folder}"
+    run_dir="${OUTPUT_ROOT}/${dataset_name}/${run_name}"
+    evaluation_dir="${EVALUATION_ROOT}/${dataset_name}/${run_name}"
+    ranking_file="${run_dir}/retrieval/retrieval_payloads__${retriever_name}__late_chunking__per_document.jsonl"
+    metrics_file="${evaluation_dir}/metrics_summary.json"
     run_index=$((run_index + 1))
 
     cmd=(
@@ -184,19 +213,97 @@ for dataset_name in "${dataset_array[@]}"; do
       continue
     fi
 
-    if "${cmd[@]}"; then
-      printf '  Completed.\n\n'
+    retrieval_complete=0
+    if [[ "${RESUME}" == "1" ]] && "${PYTHON_BIN}" verify_late_chunk_run.py \
+      --run-dir "${run_dir}" \
+      --retriever-name "${retriever_name}" \
+      --quiet; then
+      retrieval_complete=1
+      printf '  Retrieval already complete and verified; skipping encoding/retrieval.\n'
+    else
+      printf '  Retrieval is incomplete; running with document-level resume.\n'
+      if "${cmd[@]}"; then
+        if "${PYTHON_BIN}" verify_late_chunk_run.py \
+          --run-dir "${run_dir}" \
+          --retriever-name "${retriever_name}"; then
+          retrieval_complete=1
+          printf '  Retrieval completed and verified.\n'
+        else
+          printf '  Retrieval command exited successfully, but artifacts are incomplete.\n'
+        fi
+      else
+        printf '  Retrieval command failed.\n'
+      fi
+    fi
+
+    if [[ "${retrieval_complete}" != "1" ]]; then
+      failed_runs=$((failed_runs + 1))
+      printf '  Failed.\n\n'
+      if [[ "${STOP_ON_ERROR}" == "1" ]]; then
+        printf 'Stopping after first failure because STOP_ON_ERROR=1.\n'
+        exit 1
+      fi
       continue
     fi
 
-    failed_runs=$((failed_runs + 1))
-    printf '  Failed.\n\n'
-    if [[ "${STOP_ON_ERROR}" == "1" ]]; then
-      printf 'Stopping after first failure because STOP_ON_ERROR=1.\n'
-      exit 1
+    if [[ "${RUN_EVALUATION}" == "1" ]]; then
+      if [[ -f "${metrics_file}" && "${metrics_file}" -nt "${ranking_file}" ]]; then
+        printf '  Evaluation already current; skipping: %s\n' "${metrics_file}"
+      else
+        evaluation_cmd=(
+          "${PYTHON_BIN}"
+          "evaluate_retrieval_run.py"
+          "--run-dir" "${run_dir}"
+          "--output-dir" "${evaluation_dir}"
+          "--method-name" "${retriever_name}"
+          "--dataset-name" "${dataset_name}"
+          "--split" "validation"
+          "--run-name" "${run_name}"
+          "--ks"
+          "${k_array[@]}"
+        )
+        printf '  Evaluation command: '
+        printf '%q ' "${evaluation_cmd[@]}"
+        printf '\n'
+        if "${evaluation_cmd[@]}"; then
+          printf '  Evaluation completed: %s\n' "${evaluation_dir}"
+        else
+          failed_runs=$((failed_runs + 1))
+          printf '  Evaluation failed.\n\n'
+          if [[ "${STOP_ON_ERROR}" == "1" ]]; then
+            printf 'Stopping after first evaluation failure because STOP_ON_ERROR=1.\n'
+            exit 1
+          fi
+        fi
+      fi
     fi
+
+    printf '  Completed.\n\n'
   done
 done
+
+if [[ "${DRY_RUN}" != "1" && "${RUN_EVALUATION}" == "1" && "${GENERATE_TABLE}" == "1" ]]; then
+  metrics_example="$(find "${EVALUATION_ROOT}" -type f -name 'metrics_summary.json' -print -quit)"
+  if [[ -n "${metrics_example}" ]]; then
+    table_cmd=(
+      "${PYTHON_BIN}"
+      "tables/generate_late_chunk_mega_table.py"
+      "--input-root" "${EVALUATION_ROOT}"
+      "--output-file" "${TABLE_OUTPUT}"
+    )
+    printf 'Table command: '
+    printf '%q ' "${table_cmd[@]}"
+    printf '\n'
+    if "${table_cmd[@]}"; then
+      printf 'Updated table: %s\n' "${TABLE_OUTPUT}"
+    else
+      failed_runs=$((failed_runs + 1))
+      printf 'Table generation failed.\n'
+    fi
+  else
+    printf 'No metrics_summary.json files exist; table generation skipped.\n'
+  fi
+fi
 
 printf 'Finished selected MuSiQue c250 late-chunking runs. failed_runs=%s total_runs=%s\n' \
   "${failed_runs}" \
