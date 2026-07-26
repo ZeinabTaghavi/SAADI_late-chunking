@@ -27,7 +27,8 @@ DATASETS="${DATASETS:-musique_2hop musique_3hop musique_4hop}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${PROJECT_ROOT}/late_chunk_runs}"
 EVALUATION_ROOT="${EVALUATION_ROOT:-${PROJECT_ROOT}/late_chunk_evaluations}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
-TABLE_OUTPUT="${TABLE_OUTPUT:-${PROJECT_ROOT}/tables/late_chunking_mega_table.txt}"
+TABLE_OUTPUT="${TABLE_OUTPUT:-${PROJECT_ROOT}/docs/qasper_musique_c250_retrieval_table.tex}"
+TABLE_JSON_OUTPUT="${TABLE_JSON_OUTPUT:-${PROJECT_ROOT}/docs/qasper_musique_c250_retrieval_table.json}"
 CHUNK_SIZE="${CHUNK_SIZE:-250}"
 CHUNK_OVERLAP="${CHUNK_OVERLAP:-0}"
 CHUNK_TOKENIZER_NAME="${CHUNK_TOKENIZER_NAME:-jinaai/jina-embeddings-v2-small-en}"
@@ -45,7 +46,8 @@ GENERATE_TABLE="${GENERATE_TABLE:-1}"
 KS="${KS:-5 10}"
 
 mkdir -p "${OUTPUT_ROOT}" "${EVALUATION_ROOT}" "${LOG_DIR}" \
-  "$(dirname -- "${TABLE_OUTPUT}")"
+  "$(dirname -- "${TABLE_OUTPUT}")" \
+  "$(dirname -- "${TABLE_JSON_OUTPUT}")"
 MASTER_LOG="${LOG_DIR}/musique_c${CHUNK_SIZE}_o${CHUNK_OVERLAP}_selected_retrievers.log"
 if [[ "${MUSIQUE_LOG_ACTIVE:-0}" != "1" ]]; then
   export MUSIQUE_LOG_ACTIVE=1
@@ -146,6 +148,7 @@ printf '  OUTPUT_ROOT=%s\n' "${OUTPUT_ROOT}"
 printf '  EVALUATION_ROOT=%s\n' "${EVALUATION_ROOT}"
 printf '  LOG=%s\n' "${MASTER_LOG}"
 printf '  TABLE_OUTPUT=%s\n' "${TABLE_OUTPUT}"
+printf '  TABLE_JSON_OUTPUT=%s\n' "${TABLE_JSON_OUTPUT}"
 printf '  RUN_EVALUATION=%s\n' "${RUN_EVALUATION}"
 printf '  GENERATE_TABLE=%s\n' "${GENERATE_TABLE}"
 printf '  KS=%s\n' "${KS}"
@@ -247,8 +250,14 @@ for dataset_name in "${dataset_array[@]}"; do
     fi
 
     if [[ "${RUN_EVALUATION}" == "1" ]]; then
-      if [[ -f "${metrics_file}" && "${metrics_file}" -nt "${ranking_file}" ]]; then
-        printf '  Evaluation already current; skipping: %s\n' "${metrics_file}"
+      if [[
+        -s "${metrics_file}"
+        && -s "${evaluation_dir}/metrics_per_query.jsonl"
+        && -s "${evaluation_dir}/leaderboard_row.json"
+        && -s "${evaluation_dir}/evaluation_manifest.json"
+        && "${metrics_file}" -nt "${ranking_file}"
+      ]]; then
+        printf '  Evaluation already complete and current; skipping: %s\n' "${evaluation_dir}"
       else
         evaluation_cmd=(
           "${PYTHON_BIN}"
@@ -283,25 +292,27 @@ for dataset_name in "${dataset_array[@]}"; do
 done
 
 if [[ "${DRY_RUN}" != "1" && "${RUN_EVALUATION}" == "1" && "${GENERATE_TABLE}" == "1" ]]; then
-  metrics_example="$(find "${EVALUATION_ROOT}" -type f -name 'metrics_summary.json' -print -quit)"
-  if [[ -n "${metrics_example}" ]]; then
-    table_cmd=(
-      "${PYTHON_BIN}"
-      "tables/generate_late_chunk_mega_table.py"
-      "--input-root" "${EVALUATION_ROOT}"
-      "--output-file" "${TABLE_OUTPUT}"
-    )
-    printf 'Table command: '
-    printf '%q ' "${table_cmd[@]}"
-    printf '\n'
-    if "${table_cmd[@]}"; then
-      printf 'Updated table: %s\n' "${TABLE_OUTPUT}"
-    else
-      failed_runs=$((failed_runs + 1))
-      printf 'Table generation failed.\n'
-    fi
+  table_cmd=(
+    "${PYTHON_BIN}"
+    "tables/generate_qasper_musique_summary.py"
+    "--input-root" "${EVALUATION_ROOT}"
+    "--output-tex" "${TABLE_OUTPUT}"
+    "--output-json" "${TABLE_JSON_OUTPUT}"
+    "--chunk-folder" "${chunk_folder}"
+    "--print-table"
+    "--retrievers"
+    "${retriever_names[@]}"
+  )
+  printf 'Table command: '
+  printf '%q ' "${table_cmd[@]}"
+  printf '\n'
+  if "${table_cmd[@]}"; then
+    printf 'Updated commit-ready table: %s\n' "${TABLE_OUTPUT}"
+    printf 'Updated table audit data: %s\n' "${TABLE_JSON_OUTPUT}"
   else
-    printf 'No metrics_summary.json files exist; table generation skipped.\n'
+    failed_runs=$((failed_runs + 1))
+    printf 'Combined QASPER/MuSiQue table generation failed.\n'
+    printf 'Run scripts/tmp_eval_qasper_musique_c250_selected_retrievers_and_table.sh after all QASPER and MuSiQue evaluations exist.\n'
   fi
 fi
 

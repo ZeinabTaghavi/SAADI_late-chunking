@@ -7,7 +7,7 @@ The compact evaluator prefers:
 - `retrieval/retrieval_payloads__<retriever>__late_chunking__per_document.jsonl`
 - fallback: `retrieval/retrieval_results_raw__<retriever>__late_chunking__per_document.json`
 
-Both are read from an existing `--run-dir`. The evaluator can either join with an external labels file or generate labels inside the pipeline for supported datasets such as QASPER, LooGLE, NarrativeQA, QuALITY, and NovelHopQA. By default, it mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
+Both are read from an existing `--run-dir`. The evaluator can either join with an external labels file or generate labels inside the pipeline for supported datasets such as QASPER, MuSiQue, LooGLE, NarrativeQA, QuALITY, and NovelHopQA. By default, it mirrors the run path under `late_chunk_evaluations/` before writing the four compact outputs:
 
 - `metrics_summary.json`
 - `metrics_per_query.jsonl`
@@ -54,6 +54,35 @@ bash scripts/run_retrieval_evaluation.sh \
 If you want a non-default location, you can still pass `--output-dir`.
 
 If you already have a separate labels file and want to use it instead of in-process generation, pass `--labels-file path/to/labels.json`.
+
+## QASPER And Aggregated MuSiQue Table
+
+The raw run, evaluation, and log directories are intentionally ignored by Git because they can be very large. Generate the small commit-ready report under `docs/` with:
+
+```bash
+bash scripts/tmp_eval_qasper_musique_c250_selected_retrievers_and_table.sh
+```
+
+The script verifies every retrieval run, skips evaluations whose four artifacts are already complete and newer than their retrieval payload, evaluates only missing or stale results, and then writes and prints:
+
+- `docs/qasper_musique_c250_retrieval_table.tex`
+- `docs/qasper_musique_c250_retrieval_table.json`
+
+QASPER has one row per retriever. MuSiQue also has one row per retriever: its 2-hop, 3-hop, and 4-hop per-query results are concatenated and micro-averaged. The JSON file records the query count contributed by each hop and the non-null denominator for every metric.
+
+To rebuild only the table from evaluation artifacts that already exist:
+
+```bash
+python3 tables/generate_qasper_musique_summary.py \
+  --input-root late_chunk_evaluations \
+  --output-tex docs/qasper_musique_c250_retrieval_table.tex \
+  --output-json docs/qasper_musique_c250_retrieval_table.json \
+  --chunk-folder c250_o0 \
+  --print-table \
+  --retrievers jina-v3 qwen contriever bm25 bge-m3
+```
+
+Unlike `late_chunk_runs/`, `late_chunk_evaluations/`, `logs/`, and `tables/late_chunking_mega_table.txt`, these two `docs/` outputs are not ignored. They therefore appear in `git status` and can be committed normally.
 
 ## Batch QASPER Runs
 
@@ -192,9 +221,9 @@ If a requested primary relevance field is unavailable for a query, the affected 
 
 `silver_chunk_groups` are preserved in label loading for strict hit evaluation. They are not flattened into binary ranking relevance automatically unless `silver_chunk_ids` or fallback `relevant_ids` are present.
 
-## Internal QASPER, LooGLE, NarrativeQA, QuALITY, And NovelHopQA Labels
+## Internal QASPER, MuSiQue, LooGLE, NarrativeQA, QuALITY, And NovelHopQA Labels
 
-For QASPER, LooGLE, NarrativeQA, QuALITY, and NovelHopQA runs, labels are generated from:
+For QASPER, MuSiQue, LooGLE, NarrativeQA, QuALITY, and NovelHopQA runs, labels are generated from:
 
 - `selection/qa_entries.json` for the selected questions and evidence spans
 - `chunking/<doc_id>/chunks.jsonl` for the exact chunk boundaries of that experiment
