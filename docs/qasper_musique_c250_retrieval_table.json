@@ -1,0 +1,1464 @@
+{
+  "schema_version": 2,
+  "report": "QASPER and aggregated MuSiQue late-chunking retrieval",
+  "chunk_folder": null,
+  "chunk_folders": [
+    "c250_o0",
+    "c250_o25",
+    "c250_o50"
+  ],
+  "retrievers": [
+    "jina-v3",
+    "qwen",
+    "contriever",
+    "bm25",
+    "bge-m3"
+  ],
+  "aggregation_notes": [
+    "QASPER metrics are means over the available per-query values for that retriever.",
+    "Each MuSiQue row concatenates the 2-hop, 3-hop, and 4-hop per-query evaluation rows, then computes one query-weighted mean per metric.",
+    "Null metric values are excluded independently for each metric; metric_counts records every displayed metric's denominator."
+  ],
+  "rows": [
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/jina-v3/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.5301243356382984,
+        "gold_recall@10": 0.7691256830601092,
+        "silver_loose_ndcg@10": 0.5434540394075008,
+        "silver_loose_recall@10": 0.7195806680881308,
+        "union_loose_ndcg@10": 0.5525464427780349,
+        "union_loose_recall@10": 0.7202827380952381,
+        "gold_hit@5": 0.7049180327868853,
+        "gold_hit@10": 0.8524590163934426,
+        "silver_strict_hit@5": 0.43283582089552236,
+        "silver_strict_hit@10": 0.6417910447761194,
+        "strict_union_hit@5": 0.65,
+        "strict_union_hit@10": 0.8125
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 61,
+        "gold_recall@10": 61,
+        "silver_loose_ndcg@10": 67,
+        "silver_loose_recall@10": 67,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 61,
+        "gold_hit@10": 61,
+        "silver_strict_hit@5": 67,
+        "silver_strict_hit@10": 67,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/jina-v3/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.5292562559894192,
+        "gold_recall@10": 0.788135593220339,
+        "silver_loose_ndcg@10": 0.4421833315838363,
+        "silver_loose_recall@10": 0.6281255174697798,
+        "union_loose_ndcg@10": 0.5182280364166346,
+        "union_loose_recall@10": 0.7000834235209236,
+        "gold_hit@5": 0.6440677966101694,
+        "gold_hit@10": 0.8983050847457628,
+        "silver_strict_hit@5": 0.3442622950819672,
+        "silver_strict_hit@10": 0.6229508196721312,
+        "strict_union_hit@5": 0.575,
+        "strict_union_hit@10": 0.85
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 59,
+        "gold_recall@10": 59,
+        "silver_loose_ndcg@10": 61,
+        "silver_loose_recall@10": 61,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 59,
+        "gold_hit@10": 59,
+        "silver_strict_hit@5": 61,
+        "silver_strict_hit@10": 61,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/jina-v3/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.49301151340353844,
+        "gold_recall@10": 0.7129629629629629,
+        "silver_loose_ndcg@10": 0.44938645616612133,
+        "silver_loose_recall@10": 0.6118165784832451,
+        "union_loose_ndcg@10": 0.5141292672796715,
+        "union_loose_recall@10": 0.663313492063492,
+        "gold_hit@5": 0.6031746031746031,
+        "gold_hit@10": 0.7936507936507936,
+        "silver_strict_hit@5": 0.35185185185185186,
+        "silver_strict_hit@10": 0.5740740740740741,
+        "strict_union_hit@5": 0.575,
+        "strict_union_hit@10": 0.775
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 63,
+        "gold_recall@10": 63,
+        "silver_loose_ndcg@10": 54,
+        "silver_loose_recall@10": 54,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 63,
+        "gold_hit@10": 63,
+        "silver_strict_hit@5": 54,
+        "silver_strict_hit@10": 54,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/qwen/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3012477604299571,
+        "gold_recall@10": 0.633879781420765,
+        "silver_loose_ndcg@10": 0.3774573191180855,
+        "silver_loose_recall@10": 0.6333451788675669,
+        "union_loose_ndcg@10": 0.38371147589050664,
+        "union_loose_recall@10": 0.6424255952380953,
+        "gold_hit@5": 0.45901639344262296,
+        "gold_hit@10": 0.7704918032786885,
+        "silver_strict_hit@5": 0.13432835820895522,
+        "silver_strict_hit@10": 0.5223880597014925,
+        "strict_union_hit@5": 0.4,
+        "strict_union_hit@10": 0.7625
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 61,
+        "gold_recall@10": 61,
+        "silver_loose_ndcg@10": 67,
+        "silver_loose_recall@10": 67,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 61,
+        "gold_hit@10": 61,
+        "silver_strict_hit@5": 67,
+        "silver_strict_hit@10": 67,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/qwen/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3381745697941965,
+        "gold_recall@10": 0.6689265536723165,
+        "silver_loose_ndcg@10": 0.3515705124095028,
+        "silver_loose_recall@10": 0.5984020533200861,
+        "union_loose_ndcg@10": 0.38284648642015967,
+        "union_loose_recall@10": 0.6363072691197691,
+        "gold_hit@5": 0.576271186440678,
+        "gold_hit@10": 0.7966101694915254,
+        "silver_strict_hit@5": 0.14754098360655737,
+        "silver_strict_hit@10": 0.5409836065573771,
+        "strict_union_hit@5": 0.475,
+        "strict_union_hit@10": 0.7625
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 59,
+        "gold_recall@10": 59,
+        "silver_loose_ndcg@10": 61,
+        "silver_loose_recall@10": 61,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 59,
+        "gold_hit@10": 59,
+        "silver_strict_hit@5": 61,
+        "silver_strict_hit@10": 61,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/qwen/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.25804808899523585,
+        "gold_recall@10": 0.48783068783068784,
+        "silver_loose_ndcg@10": 0.2698996330751457,
+        "silver_loose_recall@10": 0.4510288065843621,
+        "union_loose_ndcg@10": 0.31601751353209245,
+        "union_loose_recall@10": 0.5259424603174603,
+        "gold_hit@5": 0.38095238095238093,
+        "gold_hit@10": 0.6190476190476191,
+        "silver_strict_hit@5": 0.14814814814814814,
+        "silver_strict_hit@10": 0.37037037037037035,
+        "strict_union_hit@5": 0.3875,
+        "strict_union_hit@10": 0.6625
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 63,
+        "gold_recall@10": 63,
+        "silver_loose_ndcg@10": 54,
+        "silver_loose_recall@10": 54,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 63,
+        "gold_hit@10": 63,
+        "silver_strict_hit@5": 54,
+        "silver_strict_hit@10": 54,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/contriever/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3572478315857515,
+        "gold_recall@10": 0.6352459016393442,
+        "silver_loose_ndcg@10": 0.43491580191243095,
+        "silver_loose_recall@10": 0.6672826344468136,
+        "union_loose_ndcg@10": 0.45047334357449487,
+        "union_loose_recall@10": 0.662266865079365,
+        "gold_hit@5": 0.5573770491803278,
+        "gold_hit@10": 0.7704918032786885,
+        "silver_strict_hit@5": 0.2835820895522388,
+        "silver_strict_hit@10": 0.582089552238806,
+        "strict_union_hit@5": 0.55,
+        "strict_union_hit@10": 0.7625
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 61,
+        "gold_recall@10": 61,
+        "silver_loose_ndcg@10": 67,
+        "silver_loose_recall@10": 67,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 61,
+        "gold_hit@10": 61,
+        "silver_strict_hit@5": 67,
+        "silver_strict_hit@10": 67,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/contriever/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.34015951462104616,
+        "gold_recall@10": 0.6090395480225989,
+        "silver_loose_ndcg@10": 0.38267196324044733,
+        "silver_loose_recall@10": 0.606300712038417,
+        "union_loose_ndcg@10": 0.41793087435922516,
+        "union_loose_recall@10": 0.6350775613275613,
+        "gold_hit@5": 0.4915254237288136,
+        "gold_hit@10": 0.7627118644067796,
+        "silver_strict_hit@5": 0.3442622950819672,
+        "silver_strict_hit@10": 0.639344262295082,
+        "strict_union_hit@5": 0.575,
+        "strict_union_hit@10": 0.8375
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 59,
+        "gold_recall@10": 59,
+        "silver_loose_ndcg@10": 61,
+        "silver_loose_recall@10": 61,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 59,
+        "gold_hit@10": 59,
+        "silver_strict_hit@5": 61,
+        "silver_strict_hit@10": 61,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/contriever/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3358391573246827,
+        "gold_recall@10": 0.6142857142857143,
+        "silver_loose_ndcg@10": 0.3563106748836124,
+        "silver_loose_recall@10": 0.5380805408583187,
+        "union_loose_ndcg@10": 0.39594996066366506,
+        "union_loose_recall@10": 0.590952380952381,
+        "gold_hit@5": 0.4444444444444444,
+        "gold_hit@10": 0.746031746031746,
+        "silver_strict_hit@5": 0.3148148148148148,
+        "silver_strict_hit@10": 0.46296296296296297,
+        "strict_union_hit@5": 0.475,
+        "strict_union_hit@10": 0.75
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 63,
+        "gold_recall@10": 63,
+        "silver_loose_ndcg@10": 54,
+        "silver_loose_recall@10": 54,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 63,
+        "gold_hit@10": 63,
+        "silver_strict_hit@5": 54,
+        "silver_strict_hit@10": 54,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bm25/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.4961764187949573,
+        "gold_recall@10": 0.7704918032786885,
+        "silver_loose_ndcg@10": 0.523048526222587,
+        "silver_loose_recall@10": 0.683955223880597,
+        "union_loose_ndcg@10": 0.5669588126115941,
+        "union_loose_recall@10": 0.719454365079365,
+        "gold_hit@5": 0.6721311475409836,
+        "gold_hit@10": 0.8852459016393442,
+        "silver_strict_hit@5": 0.29850746268656714,
+        "silver_strict_hit@10": 0.5522388059701493,
+        "strict_union_hit@5": 0.625,
+        "strict_union_hit@10": 0.825
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 61,
+        "gold_recall@10": 61,
+        "silver_loose_ndcg@10": 67,
+        "silver_loose_recall@10": 67,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 61,
+        "gold_hit@10": 61,
+        "silver_strict_hit@5": 67,
+        "silver_strict_hit@10": 67,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bm25/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.4728825205570455,
+        "gold_recall@10": 0.6844632768361582,
+        "silver_loose_ndcg@10": 0.45702345988394194,
+        "silver_loose_recall@10": 0.6814994204338467,
+        "union_loose_ndcg@10": 0.5282263210374419,
+        "union_loose_recall@10": 0.706257215007215,
+        "gold_hit@5": 0.6440677966101694,
+        "gold_hit@10": 0.7796610169491526,
+        "silver_strict_hit@5": 0.4098360655737705,
+        "silver_strict_hit@10": 0.6721311475409836,
+        "strict_union_hit@5": 0.625,
+        "strict_union_hit@10": 0.7875
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 59,
+        "gold_recall@10": 59,
+        "silver_loose_ndcg@10": 61,
+        "silver_loose_recall@10": 61,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 59,
+        "gold_hit@10": 59,
+        "silver_strict_hit@5": 61,
+        "silver_strict_hit@10": 61,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bm25/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.5132609460007798,
+        "gold_recall@10": 0.7362433862433863,
+        "silver_loose_ndcg@10": 0.3993641421469673,
+        "silver_loose_recall@10": 0.548015873015873,
+        "union_loose_ndcg@10": 0.5270080034590181,
+        "union_loose_recall@10": 0.6616369047619048,
+        "gold_hit@5": 0.6031746031746031,
+        "gold_hit@10": 0.8412698412698413,
+        "silver_strict_hit@5": 0.24074074074074073,
+        "silver_strict_hit@10": 0.4444444444444444,
+        "strict_union_hit@5": 0.575,
+        "strict_union_hit@10": 0.7875
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 63,
+        "gold_recall@10": 63,
+        "silver_loose_ndcg@10": 54,
+        "silver_loose_recall@10": 54,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 63,
+        "gold_hit@10": 63,
+        "silver_strict_hit@5": 54,
+        "silver_strict_hit@10": 54,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bge-m3/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.30423003975384877,
+        "gold_recall@10": 0.5901639344262295,
+        "silver_loose_ndcg@10": 0.3531833521964629,
+        "silver_loose_recall@10": 0.6052357261312485,
+        "union_loose_ndcg@10": 0.37122018350570934,
+        "union_loose_recall@10": 0.6038194444444445,
+        "gold_hit@5": 0.4918032786885246,
+        "gold_hit@10": 0.7213114754098361,
+        "silver_strict_hit@5": 0.11940298507462686,
+        "silver_strict_hit@10": 0.5223880597014925,
+        "strict_union_hit@5": 0.3875,
+        "strict_union_hit@10": 0.725
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 61,
+        "gold_recall@10": 61,
+        "silver_loose_ndcg@10": 67,
+        "silver_loose_recall@10": 67,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 61,
+        "gold_hit@10": 61,
+        "silver_strict_hit@5": 67,
+        "silver_strict_hit@10": 67,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bge-m3/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3166671258843386,
+        "gold_recall@10": 0.6155367231638419,
+        "silver_loose_ndcg@10": 0.3201559118126365,
+        "silver_loose_recall@10": 0.5602790197052492,
+        "union_loose_ndcg@10": 0.3559366211249986,
+        "union_loose_recall@10": 0.587536075036075,
+        "gold_hit@5": 0.4915254237288136,
+        "gold_hit@10": 0.7796610169491526,
+        "silver_strict_hit@5": 0.08196721311475409,
+        "silver_strict_hit@10": 0.5245901639344263,
+        "strict_union_hit@5": 0.4,
+        "strict_union_hit@10": 0.7375
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 59,
+        "gold_recall@10": 59,
+        "silver_loose_ndcg@10": 61,
+        "silver_loose_recall@10": 61,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 59,
+        "gold_hit@10": 59,
+        "silver_strict_hit@5": 61,
+        "silver_strict_hit@10": 61,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "qasper",
+      "dataset_label": "QASPER",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "per-query mean",
+      "n_queries": 81,
+      "source_query_counts": {
+        "qasper": 81
+      },
+      "source_files": [
+        "qasper/bge-m3/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.2760759466052923,
+        "gold_recall@10": 0.5232804232804233,
+        "silver_loose_ndcg@10": 0.26182487689780565,
+        "silver_loose_recall@10": 0.4198265726043504,
+        "union_loose_ndcg@10": 0.3137128976697817,
+        "union_loose_recall@10": 0.48879464285714286,
+        "gold_hit@5": 0.47619047619047616,
+        "gold_hit@10": 0.6825396825396826,
+        "silver_strict_hit@5": 0.1111111111111111,
+        "silver_strict_hit@10": 0.3888888888888889,
+        "strict_union_hit@5": 0.4375,
+        "strict_union_hit@10": 0.65
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 63,
+        "gold_recall@10": 63,
+        "silver_loose_ndcg@10": 54,
+        "silver_loose_recall@10": 54,
+        "union_loose_ndcg@10": 80,
+        "union_loose_recall@10": 80,
+        "gold_hit@5": 63,
+        "gold_hit@10": 63,
+        "silver_strict_hit@5": 54,
+        "silver_strict_hit@10": 54,
+        "strict_union_hit@5": 80,
+        "strict_union_hit@10": 80
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/jina-v3/c250_o0/metrics_per_query.jsonl",
+        "musique_3hop/jina-v3/c250_o0/metrics_per_query.jsonl",
+        "musique_4hop/jina-v3/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.4722009161705081,
+        "gold_recall@10": 0.7342411393781256,
+        "silver_loose_ndcg@10": 0.4186397409146504,
+        "silver_loose_recall@10": 0.4178280262198068,
+        "union_loose_ndcg@10": 0.49378280711983547,
+        "union_loose_recall@10": 0.5037928811381692,
+        "gold_hit@5": 0.6712328767123288,
+        "gold_hit@10": 0.8493150684931506,
+        "silver_strict_hit@5": 0.2601744186046512,
+        "silver_strict_hit@10": 0.44476744186046513,
+        "strict_union_hit@5": 0.6733333333333333,
+        "strict_union_hit@10": 0.8366666666666667
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 803,
+        "gold_recall@10": 803,
+        "silver_loose_ndcg@10": 688,
+        "silver_loose_recall@10": 688,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 803,
+        "gold_hit@10": 803,
+        "silver_strict_hit@5": 688,
+        "silver_strict_hit@10": 688,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/jina-v3/c250_o25/metrics_per_query.jsonl",
+        "musique_3hop/jina-v3/c250_o25/metrics_per_query.jsonl",
+        "musique_4hop/jina-v3/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.448756519490384,
+        "gold_recall@10": 0.6889190513893602,
+        "silver_loose_ndcg@10": 0.38664003784884576,
+        "silver_loose_recall@10": 0.41866790423311795,
+        "union_loose_ndcg@10": 0.47377892362161705,
+        "union_loose_recall@10": 0.5061200117165355,
+        "gold_hit@5": 0.6543942992874109,
+        "gold_hit@10": 0.8206650831353919,
+        "silver_strict_hit@5": 0.23176661264181522,
+        "silver_strict_hit@10": 0.4035656401944895,
+        "strict_union_hit@5": 0.68,
+        "strict_union_hit@10": 0.8255555555555556
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 842,
+        "gold_recall@10": 842,
+        "silver_loose_ndcg@10": 617,
+        "silver_loose_recall@10": 617,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 842,
+        "gold_hit@10": 842,
+        "silver_strict_hit@5": 617,
+        "silver_strict_hit@10": 617,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "jina-v3",
+      "retriever_label": "Jina-v3",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/jina-v3/c250_o50/metrics_per_query.jsonl",
+        "musique_3hop/jina-v3/c250_o50/metrics_per_query.jsonl",
+        "musique_4hop/jina-v3/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.4352215752707002,
+        "gold_recall@10": 0.6552294103516455,
+        "silver_loose_ndcg@10": 0.37694340608079363,
+        "silver_loose_recall@10": 0.40230129915713325,
+        "union_loose_ndcg@10": 0.4619296911373037,
+        "union_loose_recall@10": 0.5089665237201467,
+        "gold_hit@5": 0.6449359720605355,
+        "gold_hit@10": 0.8172293364377182,
+        "silver_strict_hit@5": 0.19120458891013384,
+        "silver_strict_hit@10": 0.35181644359464626,
+        "strict_union_hit@5": 0.6522222222222223,
+        "strict_union_hit@10": 0.82
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 859,
+        "gold_recall@10": 859,
+        "silver_loose_ndcg@10": 523,
+        "silver_loose_recall@10": 523,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 859,
+        "gold_hit@10": 859,
+        "silver_strict_hit@5": 523,
+        "silver_strict_hit@10": 523,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/qwen/c250_o0/metrics_per_query.jsonl",
+        "musique_3hop/qwen/c250_o0/metrics_per_query.jsonl",
+        "musique_4hop/qwen/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.17753949512724687,
+        "gold_recall@10": 0.29296190871533334,
+        "silver_loose_ndcg@10": 0.24898885967333753,
+        "silver_loose_recall@10": 0.2410729949227546,
+        "union_loose_ndcg@10": 0.24634274422160846,
+        "union_loose_recall@10": 0.23752453218775438,
+        "gold_hit@5": 0.31133250311332505,
+        "gold_hit@10": 0.4657534246575342,
+        "silver_strict_hit@5": 0.04941860465116279,
+        "silver_strict_hit@10": 0.11337209302325581,
+        "strict_union_hit@5": 0.3022222222222222,
+        "strict_union_hit@10": 0.46555555555555556
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 803,
+        "gold_recall@10": 803,
+        "silver_loose_ndcg@10": 688,
+        "silver_loose_recall@10": 688,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 803,
+        "gold_hit@10": 803,
+        "silver_strict_hit@5": 688,
+        "silver_strict_hit@10": 688,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/qwen/c250_o25/metrics_per_query.jsonl",
+        "musique_3hop/qwen/c250_o25/metrics_per_query.jsonl",
+        "musique_4hop/qwen/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.15941479402820344,
+        "gold_recall@10": 0.2667552690118011,
+        "silver_loose_ndcg@10": 0.2144124367884031,
+        "silver_loose_recall@10": 0.2042270745864836,
+        "union_loose_ndcg@10": 0.21342064680992398,
+        "union_loose_recall@10": 0.21467128743254923,
+        "gold_hit@5": 0.27197149643705465,
+        "gold_hit@10": 0.44536817102137766,
+        "silver_strict_hit@5": 0.04700162074554295,
+        "silver_strict_hit@10": 0.09238249594813615,
+        "strict_union_hit@5": 0.2777777777777778,
+        "strict_union_hit@10": 0.45444444444444443
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 842,
+        "gold_recall@10": 842,
+        "silver_loose_ndcg@10": 617,
+        "silver_loose_recall@10": 617,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 842,
+        "gold_hit@10": 842,
+        "silver_strict_hit@5": 617,
+        "silver_strict_hit@10": 617,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "qwen",
+      "retriever_label": "Qwen",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/qwen/c250_o50/metrics_per_query.jsonl",
+        "musique_3hop/qwen/c250_o50/metrics_per_query.jsonl",
+        "musique_4hop/qwen/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.17558804476811898,
+        "gold_recall@10": 0.2640307112367648,
+        "silver_loose_ndcg@10": 0.215923943422543,
+        "silver_loose_recall@10": 0.19865405837740482,
+        "union_loose_ndcg@10": 0.21445698247019784,
+        "union_loose_recall@10": 0.21629766665316436,
+        "gold_hit@5": 0.32479627473806755,
+        "gold_hit@10": 0.4807916181606519,
+        "silver_strict_hit@5": 0.040152963671128104,
+        "silver_strict_hit@10": 0.06883365200764818,
+        "strict_union_hit@5": 0.32666666666666666,
+        "strict_union_hit@10": 0.48
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 859,
+        "gold_recall@10": 859,
+        "silver_loose_ndcg@10": 523,
+        "silver_loose_recall@10": 523,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 859,
+        "gold_hit@10": 859,
+        "silver_strict_hit@5": 523,
+        "silver_strict_hit@10": 523,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/contriever/c250_o0/metrics_per_query.jsonl",
+        "musique_3hop/contriever/c250_o0/metrics_per_query.jsonl",
+        "musique_4hop/contriever/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3392000775840123,
+        "gold_recall@10": 0.5213534562849632,
+        "silver_loose_ndcg@10": 0.2908066457648148,
+        "silver_loose_recall@10": 0.28538451352849015,
+        "union_loose_ndcg@10": 0.35005087908810967,
+        "union_loose_recall@10": 0.3527310961076866,
+        "gold_hit@5": 0.5442092154420921,
+        "gold_hit@10": 0.6973848069738481,
+        "silver_strict_hit@5": 0.14534883720930233,
+        "silver_strict_hit@10": 0.2369186046511628,
+        "strict_union_hit@5": 0.5422222222222223,
+        "strict_union_hit@10": 0.6966666666666667
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 803,
+        "gold_recall@10": 803,
+        "silver_loose_ndcg@10": 688,
+        "silver_loose_recall@10": 688,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 803,
+        "gold_hit@10": 803,
+        "silver_strict_hit@5": 688,
+        "silver_strict_hit@10": 688,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/contriever/c250_o25/metrics_per_query.jsonl",
+        "musique_3hop/contriever/c250_o25/metrics_per_query.jsonl",
+        "musique_4hop/contriever/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.31602634221712994,
+        "gold_recall@10": 0.4877568525430758,
+        "silver_loose_ndcg@10": 0.26663755492219476,
+        "silver_loose_recall@10": 0.2693939273704228,
+        "union_loose_ndcg@10": 0.33482028982690615,
+        "union_loose_recall@10": 0.3499863851650836,
+        "gold_hit@5": 0.517814726840855,
+        "gold_hit@10": 0.6781472684085511,
+        "silver_strict_hit@5": 0.13452188006482982,
+        "silver_strict_hit@10": 0.22852512155591573,
+        "strict_union_hit@5": 0.5344444444444445,
+        "strict_union_hit@10": 0.7055555555555556
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 842,
+        "gold_recall@10": 842,
+        "silver_loose_ndcg@10": 617,
+        "silver_loose_recall@10": 617,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 842,
+        "gold_hit@10": 842,
+        "silver_strict_hit@5": 617,
+        "silver_strict_hit@10": 617,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "contriever",
+      "retriever_label": "Contriever",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/contriever/c250_o50/metrics_per_query.jsonl",
+        "musique_3hop/contriever/c250_o50/metrics_per_query.jsonl",
+        "musique_4hop/contriever/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.3135611794507638,
+        "gold_recall@10": 0.4754568804627012,
+        "silver_loose_ndcg@10": 0.25480658591924304,
+        "silver_loose_recall@10": 0.25197346422663974,
+        "union_loose_ndcg@10": 0.3256312109332326,
+        "union_loose_recall@10": 0.3533548435607523,
+        "gold_hit@5": 0.5389988358556461,
+        "gold_hit@10": 0.6798603026775321,
+        "silver_strict_hit@5": 0.10516252390057361,
+        "silver_strict_hit@10": 0.18929254302103252,
+        "strict_union_hit@5": 0.5488888888888889,
+        "strict_union_hit@10": 0.6911111111111111
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 859,
+        "gold_recall@10": 859,
+        "silver_loose_ndcg@10": 523,
+        "silver_loose_recall@10": 523,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 859,
+        "gold_hit@10": 859,
+        "silver_strict_hit@5": 523,
+        "silver_strict_hit@10": 523,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bm25/c250_o0/metrics_per_query.jsonl",
+        "musique_3hop/bm25/c250_o0/metrics_per_query.jsonl",
+        "musique_4hop/bm25/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.6192811155247682,
+        "gold_recall@10": 0.8266807013382357,
+        "silver_loose_ndcg@10": 0.46486197539429264,
+        "silver_loose_recall@10": 0.4553098918991764,
+        "union_loose_ndcg@10": 0.5943449651513981,
+        "union_loose_recall@10": 0.5634921760782965,
+        "gold_hit@5": 0.8430884184308842,
+        "gold_hit@10": 0.9364881693648817,
+        "silver_strict_hit@5": 0.22529069767441862,
+        "silver_strict_hit@10": 0.4491279069767442,
+        "strict_union_hit@5": 0.8122222222222222,
+        "strict_union_hit@10": 0.9211111111111111
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 803,
+        "gold_recall@10": 803,
+        "silver_loose_ndcg@10": 688,
+        "silver_loose_recall@10": 688,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 803,
+        "gold_hit@10": 803,
+        "silver_strict_hit@5": 688,
+        "silver_strict_hit@10": 688,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bm25/c250_o25/metrics_per_query.jsonl",
+        "musique_3hop/bm25/c250_o25/metrics_per_query.jsonl",
+        "musique_4hop/bm25/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.6098706648814234,
+        "gold_recall@10": 0.8227891829732685,
+        "silver_loose_ndcg@10": 0.428438127302224,
+        "silver_loose_recall@10": 0.440995282331077,
+        "union_loose_ndcg@10": 0.5842656457350678,
+        "union_loose_recall@10": 0.5824069833173685,
+        "gold_hit@5": 0.850356294536817,
+        "gold_hit@10": 0.9560570071258907,
+        "silver_strict_hit@5": 0.2366288492706645,
+        "silver_strict_hit@10": 0.41166936790923825,
+        "strict_union_hit@5": 0.8644444444444445,
+        "strict_union_hit@10": 0.9522222222222222
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 842,
+        "gold_recall@10": 842,
+        "silver_loose_ndcg@10": 617,
+        "silver_loose_recall@10": 617,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 842,
+        "gold_hit@10": 842,
+        "silver_strict_hit@5": 617,
+        "silver_strict_hit@10": 617,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bm25",
+      "retriever_label": "BM25",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bm25/c250_o50/metrics_per_query.jsonl",
+        "musique_3hop/bm25/c250_o50/metrics_per_query.jsonl",
+        "musique_4hop/bm25/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.5954086539347113,
+        "gold_recall@10": 0.7882707836724134,
+        "silver_loose_ndcg@10": 0.3954416672917689,
+        "silver_loose_recall@10": 0.410730101993505,
+        "union_loose_ndcg@10": 0.5748290277953769,
+        "union_loose_recall@10": 0.5941493245957519,
+        "gold_hit@5": 0.8416763678696159,
+        "gold_hit@10": 0.9336437718277066,
+        "silver_strict_hit@5": 0.15487571701720843,
+        "silver_strict_hit@10": 0.3403441682600382,
+        "strict_union_hit@5": 0.8355555555555556,
+        "strict_union_hit@10": 0.9322222222222222
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 859,
+        "gold_recall@10": 859,
+        "silver_loose_ndcg@10": 523,
+        "silver_loose_recall@10": 523,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 859,
+        "gold_hit@10": 859,
+        "silver_strict_hit@5": 523,
+        "silver_strict_hit@10": 523,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/0)",
+      "chunk_folder": "c250_o0",
+      "chunk_size": 250,
+      "overlap": 0,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bge-m3/c250_o0/metrics_per_query.jsonl",
+        "musique_3hop/bge-m3/c250_o0/metrics_per_query.jsonl",
+        "musique_4hop/bge-m3/c250_o0/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.08025997430111989,
+        "gold_recall@10": 0.15218130423609874,
+        "silver_loose_ndcg@10": 0.08673048403477122,
+        "silver_loose_recall@10": 0.08667334891440454,
+        "union_loose_ndcg@10": 0.10257976516747892,
+        "union_loose_recall@10": 0.11310196644042311,
+        "gold_hit@5": 0.14196762141967623,
+        "gold_hit@10": 0.24533001245330013,
+        "silver_strict_hit@5": 0.011627906976744186,
+        "silver_strict_hit@10": 0.05377906976744186,
+        "strict_union_hit@5": 0.13,
+        "strict_union_hit@10": 0.23666666666666666
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 803,
+        "gold_recall@10": 803,
+        "silver_loose_ndcg@10": 688,
+        "silver_loose_recall@10": 688,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 803,
+        "gold_hit@10": 803,
+        "silver_strict_hit@5": 688,
+        "silver_strict_hit@10": 688,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/25)",
+      "chunk_folder": "c250_o25",
+      "chunk_size": 250,
+      "overlap": 25,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bge-m3/c250_o25/metrics_per_query.jsonl",
+        "musique_3hop/bge-m3/c250_o25/metrics_per_query.jsonl",
+        "musique_4hop/bge-m3/c250_o25/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.07788415481588856,
+        "gold_recall@10": 0.14823313727708026,
+        "silver_loose_ndcg@10": 0.07809606991615181,
+        "silver_loose_recall@10": 0.07957901278668694,
+        "union_loose_ndcg@10": 0.08922947353972818,
+        "union_loose_recall@10": 0.0999292696692087,
+        "gold_hit@5": 0.13895486935866982,
+        "gold_hit@10": 0.2375296912114014,
+        "silver_strict_hit@5": 0.024311183144246355,
+        "silver_strict_hit@10": 0.04862236628849271,
+        "strict_union_hit@5": 0.14222222222222222,
+        "strict_union_hit@10": 0.23666666666666666
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 842,
+        "gold_recall@10": 842,
+        "silver_loose_ndcg@10": 617,
+        "silver_loose_recall@10": 617,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 842,
+        "gold_hit@10": 842,
+        "silver_strict_hit@5": 617,
+        "silver_strict_hit@10": 617,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    },
+    {
+      "dataset": "musique",
+      "dataset_label": "MuSiQue (2–4 Hop Aggregate)",
+      "retriever": "bge-m3",
+      "retriever_label": "BGE-M3",
+      "method": "Late Chunking (250/50)",
+      "chunk_folder": "c250_o50",
+      "chunk_size": 250,
+      "overlap": 50,
+      "aggregation": "micro-average over available per-query metric values from musique_2hop, musique_3hop, and musique_4hop",
+      "n_queries": 900,
+      "source_query_counts": {
+        "musique_2hop": 300,
+        "musique_3hop": 300,
+        "musique_4hop": 300
+      },
+      "source_files": [
+        "musique_2hop/bge-m3/c250_o50/metrics_per_query.jsonl",
+        "musique_3hop/bge-m3/c250_o50/metrics_per_query.jsonl",
+        "musique_4hop/bge-m3/c250_o50/metrics_per_query.jsonl"
+      ],
+      "metrics": {
+        "gold_ndcg@10": 0.0718924599904719,
+        "gold_recall@10": 0.12340392113383965,
+        "silver_loose_ndcg@10": 0.0694565763553521,
+        "silver_loose_recall@10": 0.0707809325742218,
+        "union_loose_ndcg@10": 0.08305849366162371,
+        "union_loose_recall@10": 0.09487889786191075,
+        "gold_hit@5": 0.1362048894062864,
+        "gold_hit@10": 0.21536670547147846,
+        "silver_strict_hit@5": 0.019120458891013385,
+        "silver_strict_hit@10": 0.03441682600382409,
+        "strict_union_hit@5": 0.1388888888888889,
+        "strict_union_hit@10": 0.21333333333333335
+      },
+      "metric_counts": {
+        "gold_ndcg@10": 859,
+        "gold_recall@10": 859,
+        "silver_loose_ndcg@10": 523,
+        "silver_loose_recall@10": 523,
+        "union_loose_ndcg@10": 900,
+        "union_loose_recall@10": 900,
+        "gold_hit@5": 859,
+        "gold_hit@10": 859,
+        "silver_strict_hit@5": 523,
+        "silver_strict_hit@10": 523,
+        "strict_union_hit@5": 900,
+        "strict_union_hit@10": 900
+      }
+    }
+  ]
+}
