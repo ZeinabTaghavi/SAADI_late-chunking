@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 GPU_IDS_CSV="${GPU_IDS_CSV:-${CUDA_VISIBLE_DEVICES:-0,1,2,3}}"
-CHUNK_SIZE="${CHUNK_SIZE:-500}"
+CHUNK_SIZE="${CHUNK_SIZE:-100}"
 OVERLAPS_CSV="${OVERLAPS_CSV:-0,25,50}"
 RETRIEVER="${RETRIEVER:-jina}"
 RETRIEVE_K="${RETRIEVE_K:-10}"
@@ -29,8 +29,8 @@ TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}/transformers}"
 TORCH_HOME="${TORCH_HOME:-${ROOT_DIR}/.cache/torch}"
 VENV_DIR="${VENV_DIR:-${ROOT_DIR}/.venv}"
 
-if [[ "${CHUNK_SIZE}" != "500" ]]; then
-  printf 'This main-table launcher requires CHUNK_SIZE=500; got %s.\n' "${CHUNK_SIZE}" >&2
+if [[ "${CHUNK_SIZE}" != "100" ]]; then
+  printf 'This main-table launcher requires CHUNK_SIZE=100; got %s.\n' "${CHUNK_SIZE}" >&2
   exit 2
 fi
 if [[ "${RETRIEVER}" != "jina" ]]; then

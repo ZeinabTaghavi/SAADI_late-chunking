@@ -35,7 +35,7 @@ DATASETS = (
 )
 RETRIEVER = "jina"
 RETRIEVER_LABEL = "Jina"
-CHUNK_SIZE = 500
+CHUNK_SIZE = 100
 OVERLAPS = (0, 25, 50)
 
 
@@ -156,8 +156,8 @@ def build_table(cells: Dict[Tuple[str, int], ResultCell]) -> str:
         r"\begin{table*}[t]",
         r"\centering",
         (
-            r"\caption{Jina late-chunking retrieval on the main SAADI context expansions. "
-            r"Chunk size is 500 tokens; values are percentages.}"
+            rf"\caption{{Jina late-chunking retrieval on the main SAADI context expansions. "
+            rf"Chunk size is {CHUNK_SIZE} tokens; values are percentages.}}"
         ),
         r"\label{tab:jina-late-chunking-expanded-main-retrieval}",
         r"\resizebox{\textwidth}{!}{%",
@@ -192,7 +192,7 @@ def build_table(cells: Dict[Tuple[str, int], ResultCell]) -> str:
             row = [
                 _escape(label) if overlap_index == 0 else "",
                 RETRIEVER_LABEL if overlap_index == 0 else "",
-                f"Late Chunking (500/{overlap})",
+                f"Late Chunking ({CHUNK_SIZE}/{overlap})",
             ]
             for view in RANKING_VIEWS:
                 for metric, _metric_label in RANKING_METRICS:

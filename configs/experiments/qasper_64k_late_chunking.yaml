@@ -11,7 +11,7 @@ dataset_loader:
 
 chunking:
   strategy: fixed
-  chunk_size: 500
+  chunk_size: 100
   overlap: 0
   tokenizer_name: jinaai/jina-embeddings-v2-small-en
 
