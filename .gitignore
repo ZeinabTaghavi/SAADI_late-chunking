@@ -6,7 +6,6 @@ late_chunk_evaluations/
 .venv/
 .pytest_cache/
 logs/
-tables/late_chunking_mega_table.txt
 
 # Bytecode
 __pycache__/
