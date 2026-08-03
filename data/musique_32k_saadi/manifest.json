@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "dataset_variant": "musique_32k",
+  "dataset": "musique",
+  "split": "validation",
+  "target_context_tokens": 32000,
+  "selection": {
+    "selected_source_documents": 900,
+    "samples_per_hop": 300,
+    "hop_query_counts": {
+      "2": 300,
+      "3": 300,
+      "4": 300
+    },
+    "qa_entries": 900,
+    "prepared_documents": 45
+  },
+  "source": "main SAADI outputs/musique_ablation/32K_expansion/prepared",
+  "files": {
+    "context_expansion_metadata.json": {
+      "sha256": "0051e470522ab684802fe8ec6a0adfbc5a9a024268b2725509ea136cbaaedcb5"
+    },
+    "documents.json": {
+      "sha256": "08114f0af24d0dc5fd876bcb7394539e966066edad4b2bd264e785b25aedfc23"
+    },
+    "group_membership.json": {
+      "sha256": "f4d0055e60474275d8ad8989f3b9c7984ae1f1af384a14a2bb97cabfb19c1e67"
+    },
+    "qa.json": {
+      "sha256": "80cbf883d527ef71188a4e093d61e934f0107bec38718d7ac795a331de9ae883"
+    }
+  }
+}

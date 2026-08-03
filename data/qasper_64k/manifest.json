@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "dataset_variant": "qasper_64k",
+  "dataset": "qasper",
+  "split": "test",
+  "target_context_tokens": 64000,
+  "selection": {
+    "selected_source_documents": 416,
+    "qa_entries": 1372,
+    "prepared_documents": 23
+  },
+  "source": "main SAADI outputs/qasper_ablation/64K_expansion/prepared",
+  "files": {
+    "context_expansion_metadata.json": {
+      "sha256": "9414435a815dffcb269f67d34a34d907cb8f7288333f90a51c739a72f10fe069"
+    },
+    "documents.json": {
+      "sha256": "66f9bc59f71ec643dc2d3dbd9062561b316b0732fc232d7b9d0df9b46f66e384"
+    },
+    "group_membership.json": {
+      "sha256": "bf8ddaea81f8773fba310dcfc9bdba8ce4a81127eae7ede450dad33bb13398c6"
+    },
+    "qa.json": {
+      "sha256": "b7ccfdcdd5ddc5bbeb84473c0c7e3d517e0e40bc99206b90107c045e0f613ca2"
+    }
+  }
+}

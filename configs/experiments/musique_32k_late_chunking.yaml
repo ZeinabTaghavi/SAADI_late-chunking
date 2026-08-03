@@ -1,0 +1,32 @@
+output_dir: outputs/musique_32k_late_chunking
+
+dataset:
+  name: musique_32k
+  split: validation
+  qa_n: all
+  qa_selection_method: first
+
+dataset_loader:
+  type: task_registry
+
+chunking:
+  strategy: fixed
+  chunk_size: 500
+  overlap: 0
+  tokenizer_name: jinaai/jina-embeddings-v2-small-en
+
+late_chunking:
+  max_tokens_per_forward: 8192
+  window_overlap_tokens: 256
+
+retrieval:
+  retriever: jina
+  retrieve_k: 10
+  scope: per_document
+
+sample:
+  max_documents: null
+  max_qa_entries: null
+
+output:
+  root: late_chunk_runs

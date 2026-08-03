@@ -14,6 +14,40 @@ Both are read from an existing `--run-dir`. The evaluator can either join with a
 - `leaderboard_row.json`
 - `evaluation_manifest.json`
 
+## Main SAADI QASPER-64K And MuSiQue-32K Jina Runs
+
+The repository contains frozen, checksum-validated copies of the exact prepared
+context expansions used by the main SAADI retrieval experiments:
+
+- QASPER-64K: 23 expanded document groups and 1,372 test queries.
+- MuSiQue-32K: 45 expanded document groups and 900 validation queries, with
+  300 queries from each of the 2-hop, 3-hop, and 4-hop subsets.
+
+Run the complete Jina late-chunking grid with chunk size 500 and overlaps
+0, 25, and 50:
+
+```bash
+GPU_IDS_CSV=0,1,2,3 \
+  bash run_qasper64k_musique32k_jina_late_chunking_gpu0_3.sh
+```
+
+The launcher validates every prepared-data checksum before starting, assigns
+the six configurations across the visible GPUs, resumes document checkpoints,
+evaluates at k=5 and k=10, and then generates:
+
+```text
+tables/table_jina_expanded_main_retrieval.tex
+```
+
+The table uses the same 18 columns as the main SAADI retrieval table:
+NDCG@5, Recall@5, NDCG@10, and Recall@10 for Gold, Silver-L, and Union-L,
+plus HR@5 and HR@10 for Gold, Silver-S, and Union-S.
+
+Use `DRY_RUN=1` to validate the bundles and print all six retrieval/evaluation
+commands without loading a model. The copied folder is path-independent; model
+dependencies and Hugging Face weights must still be available in the execution
+environment.
+
 The summary now reports the two metric families in parallel:
 
 - Ranking metrics over loose relevance targets:

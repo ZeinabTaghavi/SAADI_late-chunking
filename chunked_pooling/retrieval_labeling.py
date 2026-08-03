@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
-QASPER_DATASET_NAMES = {"qasper", "allenai/qasper"}
+QASPER_DATASET_NAMES = {"qasper", "qasper_64k", "allenai/qasper"}
 LOOGLE_DATASET_NAMES = {"loogle", "bigai-nlco/loogle", "bigainlco/loogle"}
 NARRATIVEQA_DATASET_NAMES = {"narrativeqa", "deepmind/narrativeqa"}
 QUALITY_DATASET_NAMES = {"quality", "tasksource/quality"}
@@ -24,6 +24,7 @@ MUSIQUE_DATASET_NAMES = {
     "musique_2hop",
     "musique_3hop",
     "musique_4hop",
+    "musique_32k",
 }
 
 

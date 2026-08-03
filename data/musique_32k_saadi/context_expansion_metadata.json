@@ -1,0 +1,46 @@
+{
+  "dataset": "musique",
+  "split": "validation",
+  "mode": "random_document_groups",
+  "target_context_tokens": 32000,
+  "tolerance_tokens": 4000,
+  "expansion_seed": 42,
+  "max_source_documents": 900,
+  "samples_per_hop": 300,
+  "hop_query_counts": {
+    "2": 300,
+    "3": 300,
+    "4": 300
+  },
+  "available_source_documents": 2417,
+  "selected_source_documents": 900,
+  "available_qa_entries": 2417,
+  "qa_entries": 900,
+  "prepared_documents": 45,
+  "document_id_mode": "expanded_group_id",
+  "token_counter": "whitespace",
+  "span_validation_mode": "literal_verbatim",
+  "prepared_token_lengths": {
+    "min": 28090,
+    "median": 33139,
+    "max": 34753
+  },
+  "source": {
+    "dataset_source": "hf",
+    "dataset_name": "musique",
+    "split": "validation",
+    "docs_config_name": "default",
+    "qa_config_name": "default",
+    "cached": false
+  },
+  "source_group_count": 45,
+  "emitted_context_count": 45,
+  "groups_with_trimmed_variants": 0,
+  "qa_missing_documents": 0,
+  "spans_not_contained": 0,
+  "spans_not_matchable_by_labeling": 0,
+  "source_matchable_spans": 2700,
+  "source_matchable_spans_lost": 0,
+  "queries_with_labeling_span_match": 900,
+  "queries_without_labeling_span_match": 0
+}

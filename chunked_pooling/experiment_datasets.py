@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import logging
 import json
 import os
@@ -137,6 +138,42 @@ MUSIQUE_DATASET_NAMES = {
     "musique_2hop",
     "musique_3hop",
     "musique_4hop",
+}
+PREPARED_EXPANSION_DATASET_NAMES = {"qasper_64k", "musique_32k"}
+PREPARED_EXPANSION_SPECS = {
+    "qasper_64k": {
+        "dataset": "qasper",
+        "split": "test",
+        "target_context_tokens": 64_000,
+        "documents": 23,
+        "queries": 1_372,
+        "selected_source_documents": 416,
+        "environment_variable": "QASPER_64K_PREPARED_ROOT",
+        "default_directory": "qasper_64k",
+        "file_hashes": {
+            "context_expansion_metadata.json": "9414435a815dffcb269f67d34a34d907cb8f7288333f90a51c739a72f10fe069",
+            "documents.json": "66f9bc59f71ec643dc2d3dbd9062561b316b0732fc232d7b9d0df9b46f66e384",
+            "group_membership.json": "bf8ddaea81f8773fba310dcfc9bdba8ce4a81127eae7ede450dad33bb13398c6",
+            "qa.json": "b7ccfdcdd5ddc5bbeb84473c0c7e3d517e0e40bc99206b90107c045e0f613ca2",
+        },
+    },
+    "musique_32k": {
+        "dataset": "musique",
+        "split": "validation",
+        "target_context_tokens": 32_000,
+        "documents": 45,
+        "queries": 900,
+        "selected_source_documents": 900,
+        "samples_per_hop": 300,
+        "environment_variable": "MUSIQUE_32K_PREPARED_ROOT",
+        "default_directory": "musique_32k_saadi",
+        "file_hashes": {
+            "context_expansion_metadata.json": "0051e470522ab684802fe8ec6a0adfbc5a9a024268b2725509ea136cbaaedcb5",
+            "documents.json": "08114f0af24d0dc5fd876bcb7394539e966066edad4b2bd264e785b25aedfc23",
+            "group_membership.json": "f4d0055e60474275d8ad8989f3b9c7984ae1f1af384a14a2bb97cabfb19c1e67",
+            "qa.json": "80cbf883d527ef71188a4e093d61e934f0107bec38718d7ac795a331de9ae883",
+        },
+    },
 }
 LOOGLE_HF_DATASET_IDS = ("bigai-nlco/LooGLE", "bigainlco/LooGLE")
 LOOGLE_LEGACY_CONFIG_ALIASES = {
@@ -1816,6 +1853,245 @@ def load_local_json_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
     )
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _prepared_expansion_root(dataset_variant: str) -> Path:
+    spec = PREPARED_EXPANSION_SPECS[dataset_variant]
+    configured = os.getenv(str(spec["environment_variable"]), "").strip()
+    root = Path(
+        configured
+        or Path(__file__).resolve().parents[1]
+        / "data"
+        / str(spec["default_directory"])
+    ).expanduser()
+    return root.resolve()
+
+
+def _load_and_validate_prepared_expansion(
+    dataset_variant: str,
+) -> tuple[Path, Dict[str, object], Dict[str, str], Dict[str, List[str]], List[Dict[str, object]]]:
+    spec = PREPARED_EXPANSION_SPECS[dataset_variant]
+    root = _prepared_expansion_root(dataset_variant)
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Prepared expansion manifest not found: {manifest_path}")
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+    if not isinstance(manifest, dict) or int(manifest.get("format_version", -1)) != 1:
+        raise ValueError(f"Invalid prepared expansion manifest: {manifest_path}")
+
+    expected_manifest_values = {
+        "dataset_variant": dataset_variant,
+        "dataset": str(spec["dataset"]),
+        "split": str(spec["split"]),
+        "target_context_tokens": int(spec["target_context_tokens"]),
+    }
+    for field, expected in expected_manifest_values.items():
+        if manifest.get(field) != expected:
+            raise ValueError(
+                f"Prepared {dataset_variant} manifest {field} mismatch: "
+                f"expected {expected!r}, got {manifest.get(field)!r}"
+            )
+
+    manifest_files = manifest.get("files")
+    if not isinstance(manifest_files, dict):
+        raise ValueError(f"Prepared expansion manifest has no file checksums: {manifest_path}")
+    for filename, expected_hash in dict(spec["file_hashes"]).items():
+        path = root / filename
+        if not path.is_file():
+            raise FileNotFoundError(f"Required prepared expansion file not found: {path}")
+        recorded_hash = (manifest_files.get(filename) or {}).get("sha256")
+        if recorded_hash != expected_hash:
+            raise ValueError(
+                f"Prepared {dataset_variant} manifest checksum mismatch for {filename}: "
+                f"expected {expected_hash}, got {recorded_hash}"
+            )
+        actual_hash = _sha256(path)
+        if actual_hash != expected_hash:
+            raise ValueError(
+                f"Prepared {dataset_variant} file checksum mismatch for {filename}: "
+                f"expected {expected_hash}, got {actual_hash}"
+            )
+
+    with (root / "context_expansion_metadata.json").open("r", encoding="utf-8") as handle:
+        metadata = json.load(handle)
+    with (root / "documents.json").open("r", encoding="utf-8") as handle:
+        documents = json.load(handle)
+    with (root / "group_membership.json").open("r", encoding="utf-8") as handle:
+        membership = json.load(handle)
+    with (root / "qa.json").open("r", encoding="utf-8") as handle:
+        qa_rows = json.load(handle)
+
+    if not isinstance(metadata, dict):
+        raise ValueError(f"Invalid expansion metadata under {root}")
+    if not isinstance(documents, dict) or len(documents) != int(spec["documents"]):
+        raise ValueError(
+            f"Prepared {dataset_variant} has an invalid document count; "
+            f"expected {spec['documents']}"
+        )
+    if not isinstance(membership, dict) or set(membership) != set(documents):
+        raise ValueError(f"Prepared {dataset_variant} membership does not match its documents")
+    if not isinstance(qa_rows, list) or len(qa_rows) != int(spec["queries"]):
+        raise ValueError(
+            f"Prepared {dataset_variant} has an invalid query count; expected {spec['queries']}"
+        )
+
+    expected_metadata_values = {
+        "dataset": str(spec["dataset"]),
+        "split": str(spec["split"]),
+        "target_context_tokens": int(spec["target_context_tokens"]),
+        "prepared_documents": int(spec["documents"]),
+        "qa_entries": int(spec["queries"]),
+        "selected_source_documents": int(spec["selected_source_documents"]),
+    }
+    for field, expected in expected_metadata_values.items():
+        if metadata.get(field) != expected:
+            raise ValueError(
+                f"Prepared {dataset_variant} metadata {field} mismatch: "
+                f"expected {expected!r}, got {metadata.get(field)!r}"
+            )
+    if int(metadata.get("source_matchable_spans_lost", -1)) != 0:
+        raise ValueError(f"Prepared {dataset_variant} reports lost source-matchable spans")
+    if "samples_per_hop" in spec and metadata.get("hop_query_counts") != {
+        "2": int(spec["samples_per_hop"]),
+        "3": int(spec["samples_per_hop"]),
+        "4": int(spec["samples_per_hop"]),
+    }:
+        raise ValueError(f"Prepared {dataset_variant} does not contain 300 queries per hop")
+    return root, metadata, documents, membership, qa_rows
+
+
+def load_prepared_expansion_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
+    """Load the exact frozen context expansion used by the main SAADI retrieval runs."""
+
+    import random
+
+    dataset_variant = str(loader_config["dataset_name"]).strip().lower()
+    if dataset_variant not in PREPARED_EXPANSION_DATASET_NAMES:
+        raise ValueError(f"Unsupported prepared expansion: {dataset_variant}")
+    spec = PREPARED_EXPANSION_SPECS[dataset_variant]
+    split = str(loader_config.get("split") or spec["split"]).strip().lower()
+    if split != spec["split"]:
+        raise ValueError(
+            f"The {dataset_variant} bundle contains only split={spec['split']!r}, got {split!r}"
+        )
+
+    root, metadata, raw_documents, raw_membership, raw_qa_rows = (
+        _load_and_validate_prepared_expansion(dataset_variant)
+    )
+    qa_n = loader_config.get("qa_n", "all")
+    selected_n = len(raw_qa_rows) if qa_n in (None, "", "all") else int(qa_n)
+    selected_n = min(selected_n, len(raw_qa_rows))
+    selected_indices = list(range(len(raw_qa_rows)))
+    selection_method = str(
+        loader_config.get("qa_selection_method") or "first"
+    ).strip().lower()
+    if selected_n < len(selected_indices):
+        selected_indices = (
+            random.Random(13).sample(selected_indices, selected_n)
+            if selection_method == "random"
+            else selected_indices[:selected_n]
+        )
+
+    documents: "OrderedDict[str, Dict[str, object]]" = OrderedDict()
+    for raw_doc_id, raw_text in raw_documents.items():
+        doc_id = str(raw_doc_id)
+        if not isinstance(raw_text, str):
+            raise ValueError(f"Prepared {dataset_variant} document {doc_id!r} is not text")
+        members = raw_membership.get(doc_id)
+        if not isinstance(members, list):
+            raise ValueError(f"Prepared {dataset_variant} membership for {doc_id!r} is invalid")
+        documents[doc_id] = {
+            "doc_id": doc_id,
+            "text": raw_text,
+            "group_members": [str(member) for member in members],
+        }
+
+    qa_entries: List[Dict[str, object]] = []
+    seen_query_ids = set()
+    hop_counts = {2: 0, 3: 0, 4: 0}
+    for source_index in selected_indices:
+        row = raw_qa_rows[source_index]
+        if not isinstance(row, dict):
+            raise ValueError(f"Prepared {dataset_variant} QA row {source_index} is invalid")
+        doc_id = str(row.get("document_id") or "").strip()
+        source_doc_id = str(row.get("source_document_id") or "").strip()
+        if doc_id not in documents:
+            raise ValueError(
+                f"Prepared {dataset_variant} QA row {source_index} references missing {doc_id!r}"
+            )
+        if source_doc_id not in set(documents[doc_id]["group_members"]):
+            raise ValueError(
+                f"Prepared {dataset_variant} QA row {source_index} source "
+                f"{source_doc_id!r} is not a member of {doc_id!r}"
+            )
+        query_id = str(row.get("id", source_index))
+        if query_id in seen_query_ids:
+            raise ValueError(f"Prepared {dataset_variant} has duplicate query ID {query_id!r}")
+        seen_query_ids.add(query_id)
+
+        raw_answers = row.get("answers")
+        answers = (
+            [str(value) for value in raw_answers]
+            if isinstance(raw_answers, list)
+            else ([str(raw_answers)] if raw_answers not in (None, "") else [])
+        )
+        raw_spans = row.get("retrieval_spans")
+        spans = (
+            [str(value) for value in raw_spans if str(value).strip()]
+            if isinstance(raw_spans, list)
+            else ([str(raw_spans)] if raw_spans not in (None, "") else [])
+        )
+        hop_match = re.match(r"^([234])hop", source_doc_id)
+        hop = int(hop_match.group(1)) if hop_match else None
+        if hop is not None:
+            hop_counts[hop] += 1
+        qa_entries.append(
+            {
+                "query_id": query_id,
+                "source_qa_index": source_index,
+                "doc_id": doc_id,
+                "document_id": doc_id,
+                "question": str(row.get("question") or "").strip(),
+                "reference_answers": answers,
+                "answers": answers,
+                "retrieval_spans": spans,
+                "evidence_spans": spans,
+                "source_document_id": source_doc_id,
+                "source_split": str(spec["split"]),
+                "target_context_tokens": int(spec["target_context_tokens"]),
+                "hop": hop,
+                "relevant_doc_ids": [doc_id],
+            }
+        )
+
+    if dataset_variant == "musique_32k" and selected_n == int(spec["queries"]):
+        if hop_counts != {2: 300, 3: 300, 4: 300}:
+            raise ValueError(f"Prepared MuSiQue-32K hop counts are invalid: {hop_counts}")
+
+    return DatasetBundle(
+        documents=documents,
+        qa_entries=qa_entries,
+        metadata={
+            "loader_type": "prepared_expansion",
+            "dataset_variant": dataset_variant,
+            "source_dataset": spec["dataset"],
+            "split": spec["split"],
+            "target_context_tokens": spec["target_context_tokens"],
+            "qa_n": loader_config.get("qa_n", "all"),
+            "qa_selection_method": selection_method,
+            "prepared_root": str(root),
+            "context_expansion_metadata": metadata,
+        },
+    )
+
+
 def _load_hf_rows(spec: Dict[str, object], split_name: str) -> List[Dict[str, object]]:
     dataset_dict = datasets.load_dataset(
         path=spec["path"],
@@ -1979,6 +2255,8 @@ def load_musique_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
 
 def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle:
     dataset_name = str(loader_config["dataset_name"]).lower()
+    if dataset_name in PREPARED_EXPANSION_DATASET_NAMES:
+        return load_prepared_expansion_bundle(loader_config)
     if dataset_name in MUSIQUE_DATASET_NAMES:
         return load_musique_bundle(loader_config)
     if dataset_name in QASPER_DATASET_NAMES:
@@ -1997,7 +2275,7 @@ def load_task_registry_bundle(loader_config: Dict[str, object]) -> DatasetBundle
         raise ValueError(
             f"Unsupported dataset '{loader_config['dataset_name']}'. "
             f"Supported presets: {supported}, loogle, musique_2hop, musique_3hop, "
-            "musique_4hop, narrativeqa, novelqa, qasper, quality"
+            "musique_4hop, musique_32k, narrativeqa, novelqa, qasper, qasper_64k, quality"
         )
 
     spec = dict(DATASET_PRESETS[dataset_name])

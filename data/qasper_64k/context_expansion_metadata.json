@@ -1,0 +1,40 @@
+{
+  "dataset": "qasper",
+  "split": "test",
+  "mode": "random_document_groups",
+  "target_context_tokens": 64000,
+  "tolerance_tokens": 4000,
+  "expansion_seed": 42,
+  "max_source_documents": null,
+  "available_source_documents": 416,
+  "selected_source_documents": 416,
+  "available_qa_entries": 1372,
+  "qa_entries": 1372,
+  "prepared_documents": 23,
+  "document_id_mode": "expanded_group_id",
+  "token_counter": "whitespace",
+  "span_validation_mode": "existing_labeling_normalized_tokens",
+  "prepared_token_lengths": {
+    "min": 55342,
+    "median": 65765,
+    "max": 68000
+  },
+  "source": {
+    "dataset_source": "hf",
+    "dataset_name": "qasper",
+    "split": "test",
+    "docs_config_name": "default",
+    "qa_config_name": "default",
+    "cached": false
+  },
+  "source_group_count": 21,
+  "emitted_context_count": 23,
+  "groups_with_trimmed_variants": 2,
+  "qa_missing_documents": 0,
+  "spans_not_contained": 703,
+  "spans_not_matchable_by_labeling": 499,
+  "source_matchable_spans": 5175,
+  "source_matchable_spans_lost": 0,
+  "queries_with_labeling_span_match": 1310,
+  "queries_without_labeling_span_match": 43
+}
